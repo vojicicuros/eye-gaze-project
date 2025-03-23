@@ -1,0 +1,3 @@
+tests/
+# ignore all logs
+*.log
