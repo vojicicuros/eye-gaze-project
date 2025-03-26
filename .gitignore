@@ -1,4 +1,6 @@
 tests/
+threads/
+data/
 # ignore all logs
 *.log
 
