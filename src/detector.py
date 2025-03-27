@@ -1,41 +1,43 @@
+import sys
 import cv2
 import mediapipe as mp
-from camera import Camera
 import threading
 
 
 class FaceRecognizer:
-    def __init__(self):
+    def __init__(self, camera):
         self.mp_face_detection = mp.solutions.face_detection
-        self.face_detector = self.mp_face_detection.FaceDetection(min_detection_confidence=0.5)
+        self.face_detector = self.mp_face_detection.FaceDetection(min_detection_confidence=0.8)
 
-    def detect_face(self, camera):
+        self.camera = camera
+        self.face_box_location = None
+
+        self.detect_face_thread = threading.Thread(target=self.detect_face, daemon=True)
+
+    def detect_face(self):
         """Continuously detects faces in the camera feed."""
         while True:
-            if camera.feed is not None:
+            if self.camera.feed is not None:
                 # Convert BGR to RGB for MediaPipe processing
-                feed_rgb = cv2.cvtColor(camera.feed, cv2.COLOR_BGR2RGB)
+                feed_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
 
                 # Process the image and detect faces
                 results = self.face_detector.process(feed_rgb)
 
                 if results.detections:
                     print("Face detected!")
+                    for detection in results.detections:
+                        # Get bounding box information
+                        self.face_box_location = detection.location_data.relative_bounding_box
+                        self.camera.face_box = self.face_box_location
+                        #print(self.face_box_location)
                 else:
                     print("No face detected.")
+            else:
+                self.stop()
 
+    def stop(self):
+        if self.detect_face_thread.is_alive():
+            self.detect_face_thread.join()
 
-if __name__ == '__main__':
-    cam = Camera()
-    recognizer = FaceRecognizer()
-
-    t1 = threading.Thread(target=cam.get_feed, args=())
-    t1.setDaemon(True)
-    t1.start()
-
-    t2 = threading.Thread(target=recognizer.detect_face, args=(cam,))
-    t2.setDaemon(True)
-    t2.start()
-
-    t1.join()
-    t2.join()
+        print("Detector successfully closed.")
