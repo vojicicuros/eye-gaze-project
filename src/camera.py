@@ -16,6 +16,7 @@ class Camera:
         success, self.feed = self.cap.read()
         self.running = True
         self.face_box = None
+        self.face_landmarks = None
 
         self.get_feed_thread = threading.Thread(target=self.get_feed, daemon=True)
         self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)  # Start thread within class
@@ -34,6 +35,18 @@ class Camera:
 
             # Draw a blue rectangle around the face
             cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
+        face_parts = ["left_eye_landmarks", "right_eye_landmarks", "nose_landmarks",
+                      "mouth_landmarks", "all_landmarks", "left_iris_landmarks",
+                      "right_iris_landmarks"]
+
+        try:
+            for landmark in self.face_landmarks[face_parts[1]]:
+                # Draw a small green circle at each landmark coordinate
+                cv2.circle(img, (landmark[0], landmark[1]), 3, (0, 255, 0), -1)
+                # Circle parameters: center, radius, color, thickness
+        except KeyError:
+            # If the landmark for the specified part is not found, skip drawing
+            pass
 
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
