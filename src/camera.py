@@ -6,6 +6,8 @@ class Camera:
 
     def __init__(self):
 
+        self.landmarks_lock = threading.Lock()  # Create a lock
+
         self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             print("Cannot open camera. Make sure camera is connected properly.")
@@ -24,7 +26,6 @@ class Camera:
     def show_in_window(self, win_name, img):
         if self.face_box:
             h, w, _ = img.shape  # Get frame dimensions
-
             # Convert relative bbox coordinates to pixel values
             x, y, w_box, h_box = (
                 int(self.face_box.xmin * w),
@@ -32,26 +33,26 @@ class Camera:
                 int(self.face_box.width * w),
                 int(self.face_box.height * h)
             )
-
             # Draw a blue rectangle around the face
             cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
-        face_parts = ["left_eye_landmarks", "right_eye_landmarks", "nose_landmarks",
-                      "mouth_landmarks", "all_landmarks", "left_iris_landmarks",
-                      "right_iris_landmarks"]
-
-        try:
-            for landmark in self.face_landmarks[face_parts[1]]:
-                # Draw a small green circle at each landmark coordinate
-                cv2.circle(img, (landmark[0], landmark[1]), 3, (0, 255, 0), -1)
-                # Circle parameters: center, radius, color, thickness
-        except KeyError:
-            # If the landmark for the specified part is not found, skip drawing
-            pass
+        #Mesh related
+        keys_eyes = ["left_eye", "right_eye"]
+        keys_iris = ["left_iris", "right_iris"]
+        with self.landmarks_lock:
+            if self.face_landmarks:
+                for key in keys_eyes:
+                    for landmark in self.face_landmarks[key]:
+                        cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 255), 1)
+                for key in keys_iris:
+                    for landmark in self.face_landmarks[key]:
+                        cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 255, 0), 1)
 
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
         cv2.imshow(win_name, img)
+        # Resetting face_box and face_landmarks
         self.face_box = None
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.stop()
 
@@ -63,7 +64,6 @@ class Camera:
 
     def edit_frame(self, frame):
         #frame = cv2.flip(frame, 1)
-        #frame = cv2.resize(frame, (300,200))
         return frame
 
     def get_feed(self):
