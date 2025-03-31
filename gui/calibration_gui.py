@@ -27,7 +27,7 @@ def graphics():
     collapse_steps = 20
     collapse_time = 0.05
 
-    # Define 16 circle positions (4 in each row, evenly spaced)
+    # Define 16 circle positions (4 in each row)
     row_step = (screen_height - 2 * padding) // 3
     col_step = (screen_width - 2 * padding) // 3
 
@@ -110,6 +110,6 @@ def graphics():
     pygame.quit()
 
 
-# if __name__ == "__main__":
-#
-#     graphics()
+if __name__ == "__main__":
+
+    graphics()

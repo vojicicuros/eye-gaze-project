@@ -71,7 +71,7 @@ class Camera:
         while self.running:
             # Capture frame-by-frame
             success, self.feed = self.cap.read()
-            self.feed = self.edit_frame(self.feed)
+            #self.feed = self.edit_frame(self.feed)
             if not success:
                 continue
 
