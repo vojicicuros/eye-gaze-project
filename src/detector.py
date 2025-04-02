@@ -15,7 +15,7 @@ class Smoother:
             self.smoothed = np.array(new_value, dtype=np.float32)
         else:
             self.smoothed = self.alpha * np.array(new_value, dtype=np.float32) + (1 - self.alpha) * self.smoothed
-        print(self.smoothed)
+        #print(self.smoothed)
         return self.smoothed.astype(int)
 
 
@@ -40,7 +40,13 @@ class FaceRecognizer:
                                     144, 163, 7]
         self.LEFT_IRIS_LANDMARKS = [474, 475, 477, 476]
         self.RIGHT_IRIS_LANDMARKS = [469, 470, 471, 472]
-        self.mesh_landmarks = {"left_eye": [], "right_eye": [], "left_iris": [], "right_iris": []}
+        self.mesh_landmarks = {"left_eye": [],
+                               "right_eye": [],
+                               "left_iris": [],
+                               "right_iris": [],
+                               "l_iris_center": [],
+                               "r_iris_center": []
+                               }
 
         # Smoothers for each facial feature
         self.eye_smoothers = {
@@ -67,7 +73,7 @@ class FaceRecognizer:
                 results = self.face_detector.process(feed_rgb)
 
                 if results.detections:
-                    print("Face detected!")
+                    # print("Face detected!")
                     for detection in results.detections:
                         # Get bounding box information
                         self.face_box_location = detection.location_data.relative_bounding_box
@@ -76,6 +82,29 @@ class FaceRecognizer:
                     print("No face detected")
             else:
                 self.stop()
+
+    def iris_center(self, iris_landmarks):
+        x1, y1 = iris_landmarks[0]
+        x2, y2 = iris_landmarks[1]
+        x3, y3 = iris_landmarks[2]
+        x4, y4 = iris_landmarks[3]
+
+        # Koeficijenti pravaca
+        k1 = (y3 - y1) / (x3 - x1) if x3 != x1 else float('inf')
+        k2 = (y4 - y2) / (x4 - x2) if x4 != x2 else float('inf')
+
+        if k1 == float('inf'):
+            x_p = x1
+            y_p = y2 + k2 * (x_p - x2)
+        elif k2 == float('inf'):
+            x_p = x2
+            y_p = y1 + k1 * (x_p - x1)
+        else:
+            x_p = (k1 * x1 - k2 * x2 + y2 - y1) / (k1 - k2)
+            y_p = y1 + k1 * (x_p - x1)
+        x_p = int(x_p)
+        y_p = int(y_p)
+        return x_p, y_p
 
     def detect_face_mesh(self):
         while True:
@@ -102,16 +131,25 @@ class FaceRecognizer:
 
                         # Apply EMA smoothing
                         for key in self.mesh_landmarks.keys():
+                            if key == "l_iris_center" or key == "r_iris_center":
+                                continue
+
                             if new_landmarks[key]:
                                 self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
-
-                self.camera.face_landmarks = self.mesh_landmarks
+                with self.camera.landmarks_lock:
+                    self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
+                    self.mesh_landmarks["r_iris_center"] = self.iris_center(new_landmarks["right_iris"])
+                    self.camera.face_landmarks = self.mesh_landmarks.copy()
                 # Reset mesh_landmarks
-                self.mesh_landmarks = {"left_eye": [], "right_eye": [], "left_iris": [], "right_iris": []}
-
+                self.mesh_landmarks = {
+                    "left_eye": [], "right_eye": [],
+                    "left_iris": [], "right_iris": [],
+                    "l_iris_center": [], "r_iris_center": []
+                }
 
             else:
                 self.stop()
+
     def stop(self):
         if self.detect_face_thread.is_alive():
             self.detect_face_thread.join()

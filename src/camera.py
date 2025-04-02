@@ -35,17 +35,20 @@ class Camera:
             )
             # Draw a blue rectangle around the face
             cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
-        #Mesh related
-        keys_eyes = ["left_eye", "right_eye"]
-        keys_iris = ["left_iris", "right_iris"]
-        with self.landmarks_lock:
-            if self.face_landmarks:
-                for key in keys_eyes:
-                    for landmark in self.face_landmarks[key]:
-                        cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 255), 1)
-                for key in keys_iris:
-                    for landmark in self.face_landmarks[key]:
-                        cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 255, 0), 1)
+            #Mesh related
+            keys_eyes = ["left_eye", "right_eye"]
+            keys_iris = ["left_iris", "right_iris"]
+            keys_iris_center = ["l_iris_center", "r_iris_center"]
+            with self.landmarks_lock:
+                if self.face_landmarks:
+                    for key in keys_eyes:
+                        for landmark in self.face_landmarks[key]:
+                            cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 0, 255), 1)
+                    for key in keys_iris:
+                        for landmark in self.face_landmarks[key]:
+                            cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 0), 1)
+                    for key in keys_iris_center:
+                        cv2.circle(img, (self.face_landmarks[key][0], self.face_landmarks[key][1]), 1, (255, 255, 255), 1)
 
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
@@ -63,7 +66,7 @@ class Camera:
 
 
     def edit_frame(self, frame):
-        #frame = cv2.flip(frame, 1)
+        frame = cv2.flip(frame, 1)
         return frame
 
     def get_feed(self):
@@ -71,7 +74,7 @@ class Camera:
         while self.running:
             # Capture frame-by-frame
             success, self.feed = self.cap.read()
-            #self.feed = self.edit_frame(self.feed)
+            # self.feed = self.edit_frame(self.feed)
             if not success:
                 continue
 
