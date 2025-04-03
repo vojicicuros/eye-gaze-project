@@ -22,39 +22,46 @@ class Camera:
 
         self.get_feed_thread = threading.Thread(target=self.get_feed, daemon=True)
         self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)  # Start thread within class
+    def draw_face_rectangle(self, img):
+        h, w, _ = img.shape  # Get frame dimensions
+        # Convert relative bbox coordinates to pixel values
+        x, y, w_box, h_box = (
+            int(self.face_box.xmin * w),
+            int(self.face_box.ymin * h),
+            int(self.face_box.width * w),
+            int(self.face_box.height * h)
+        )
+        # Draw a blue rectangle around the face
+        cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
+
+    def draw_eyes_landmarks(self, img):
+
+        # Mesh related
+        keys_eyes = ["left_eye", "right_eye"]
+        keys_iris = ["left_iris", "right_iris"]
+        keys_iris_center = ["l_iris_center", "r_iris_center"]
+        with self.landmarks_lock:
+            if self.face_landmarks:
+                for key in keys_eyes:
+                    for landmark in self.face_landmarks[key]:
+                        cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 0, 255), 1)
+
+                for key in keys_iris:
+                    for landmark in self.face_landmarks[key]:
+                        cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 0), 1)
+
+                for key in keys_iris_center:
+                    cv2.circle(img, (self.face_landmarks[key][0], self.face_landmarks[key][1]), 1, (255, 255, 255), 1)
 
     def show_in_window(self, win_name, img):
-        if self.face_box:
-            h, w, _ = img.shape  # Get frame dimensions
-            # Convert relative bbox coordinates to pixel values
-            x, y, w_box, h_box = (
-                int(self.face_box.xmin * w),
-                int(self.face_box.ymin * h),
-                int(self.face_box.width * w),
-                int(self.face_box.height * h)
-            )
-            # Draw a blue rectangle around the face
-            cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
-            #Mesh related
-            keys_eyes = ["left_eye", "right_eye"]
-            keys_iris = ["left_iris", "right_iris"]
-            keys_iris_center = ["l_iris_center", "r_iris_center"]
-            with self.landmarks_lock:
-                if self.face_landmarks:
-                    for key in keys_eyes:
-                        for landmark in self.face_landmarks[key]:
-                            cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 0, 255), 1)
-                    for key in keys_iris:
-                        for landmark in self.face_landmarks[key]:
-                            cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 0), 1)
-                    for key in keys_iris_center:
-                        cv2.circle(img, (self.face_landmarks[key][0], self.face_landmarks[key][1]), 1, (255, 255, 255), 1)
-
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
+
+        if self.face_box:
+            self.draw_face_rectangle(img)
+            self.draw_eyes_landmarks(img)
+
         cv2.imshow(win_name, img)
-        # Resetting face_box and face_landmarks
-        self.face_box = None
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.stop()
