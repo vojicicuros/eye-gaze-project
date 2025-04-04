@@ -9,6 +9,21 @@ def draw_crosshair(surface, x, y, size=7, color=(0, 0, 0)):
     pygame.draw.line(surface, color, (x - size, y), (x + size, y), 5)
     pygame.draw.line(surface, color, (x, y - size), (x, y + size), 5)
 
+def shrink_circle_at(screen, x, y, radius, collapse_steps, collapse_time, white, red, black):
+    for step in range(collapse_steps + 1):
+        shrinking_radius = int(interpolate(radius, 0, step, collapse_steps))
+        screen.fill(white)
+
+        # Permanent outer black border
+        pygame.draw.circle(screen, black, (x, y), radius, 3)
+
+        pygame.draw.circle(screen, black, (x, y), shrinking_radius + 2)  # Shrinking outer border
+        pygame.draw.circle(screen, red, (x, y), shrinking_radius)
+
+        draw_crosshair(screen, x, y)
+        pygame.display.flip()
+        time.sleep(collapse_time)
+
 def graphics():
     pygame.init()
     info = pygame.display.Info()
@@ -37,7 +52,8 @@ def graphics():
     ]
 
     print("Circle Positions:")
-    current_x, current_y = positions[0]  # Start from the first position
+    current_x, current_y = positions[0]
+
     # Display calibration button
     font = pygame.font.Font(None, 100)
     button_text = font.render("Calibration", True, white)
@@ -68,16 +84,13 @@ def graphics():
 
     for idx, (x, y) in enumerate(positions):
         print(f"Circle {idx + 1}: ({x}, {y})")
-        # Smooth transition from current position to next position
         for step in range(transition_steps + 1):
             intermediate_x = int(interpolate(current_x, x, step, transition_steps))
             intermediate_y = int(interpolate(current_y, y, step, transition_steps))
 
-            screen.fill(white)  # Clear screen
-            pygame.draw.circle(screen, black, (intermediate_x, intermediate_y), radius + 3)  # Outer black border
+            screen.fill(white)
+            pygame.draw.circle(screen, black, (intermediate_x, intermediate_y), radius + 3)
             pygame.draw.circle(screen, red, (intermediate_x, intermediate_y), radius)
-
-            # Draw the crosshair at the center of the circle
             draw_crosshair(screen, intermediate_x, intermediate_y)
 
             pygame.display.flip()
@@ -88,28 +101,15 @@ def graphics():
                     pygame.quit()
                     return
 
-        current_x, current_y = x, y  # Update current position
+        current_x, current_y = x, y
 
-        # Circle collapse animation
-        for step in range(collapse_steps + 1):
-            shrinking_radius = int(interpolate(radius, 0, step, collapse_steps))
-            screen.fill(white)
+        # Use the shrink_circle_at method here
+        shrink_circle_at(screen, x, y, radius, collapse_steps, collapse_time, white, red, black)
 
-            # Permanent outer black border
-            pygame.draw.circle(screen, black, (x, y), radius, 3)
-
-            pygame.draw.circle(screen, black, (x, y), shrinking_radius + 2)  # Shrinking outer border
-            pygame.draw.circle(screen, red, (x, y), shrinking_radius)
-
-            draw_crosshair(screen, x, y)
-            pygame.display.flip()
-            time.sleep(collapse_time)
-
-        time.sleep(0.1)  # Short pause before growing next circle
+        time.sleep(0.1)
 
     pygame.quit()
 
 
 if __name__ == "__main__":
-
     graphics()

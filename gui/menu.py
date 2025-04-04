@@ -1,77 +1,57 @@
-import pygame
-import button
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
 
-pygame.init()
 
-#create game window
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+def on_button1():
+    messagebox.showinfo("Calibration", "Calibration button clicked!")
 
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Main Menu")
 
-#game variables
-game_paused = False
-menu_state = "main"
+def on_button2():
+    messagebox.showinfo("Validation", "Validation button clicked!")
 
-#define fonts
-font = pygame.font.SysFont("arialblack", 40)
 
-#define colours
-TEXT_COL = (255, 255, 255)
+def on_button3():
+    messagebox.showinfo("Eye-Gazing", "Eye-Gazing button clicked!")
 
-#load button images
-resume_img = pygame.image.load("images/button_resume.png").convert_alpha()
-calibration_img = pygame.image.load("images/button_calibration.png").convert_alpha()
-validation_img = pygame.image.load("images/button_validation.png").convert_alpha()
-eye_gaze_img = pygame.image.load("images/button_eye_gaze.png").convert_alpha()
-quit_img = pygame.image.load('images/button_quit.png').convert_alpha()
-back_img = pygame.image.load('images/button_back.png').convert_alpha()
 
-#create button instances
-resume_button = button.Button(0, 0, resume_img, 1)
-calibration_button = button.Button(304, 125, calibration_img, 1)
-validation_button = button.Button(297, 250, validation_img, 1)
-eye_gaze_button = button.Button(336, 375, eye_gaze_img, 1)
-quit_button = button.Button(332, 450, quit_img, 1)
+def on_esc(event=None):
+    root.quit()
 
-def draw_text(text, font, text_col, x, y):
-  img = font.render(text, True, text_col)
-  screen.blit(img, (x, y))
 
-if __name__ == "__main__":
-    #game loop
-    run = True
-    while run:
+# Create main window
+root = tk.Tk()
+root.title("My Application")
+root.geometry("400x400")
 
-      screen.fill((52, 78, 91))
+# Load background image (update the path)
+bg_image = Image.open(r"images\background.png")
+bg_image = bg_image.resize((400, 400), resample=Image.NEAREST)
+bg_photo = ImageTk.PhotoImage(bg_image)
 
-      #check if game is paused
-      if game_paused == True:
-        #check menu state
-        if menu_state == "main":
-          #draw pause screen buttons
-          if resume_button.draw(screen):
-            game_paused = False
-          if calibration_button.draw(screen):
-            game_paused = False
-          if validation_button.draw(screen):
-            game_paused = False
-          if eye_gaze_button.draw(screen):
-            game_paused = False
-          if quit_button.draw(screen):
-            run = False
-      else:
-        draw_text("Press SPACE to pause", font, TEXT_COL, 160, 250)
+# Create a Label to display the background image
+bg_label = tk.Label(root, image=bg_photo)
+bg_label.place(relwidth=1, relheight=1)  # Set the background image to cover the whole window
 
-      #event handler
-      for event in pygame.event.get():
-        if event.type == pygame.KEYDOWN:
-          if event.key == pygame.K_SPACE:
-            game_paused = True
-        if event.type == pygame.QUIT:
-          run = False
+# Create a Frame to center the buttons
+button_frame = tk.Frame(root)
+button_frame.place(relx=0.5, rely=0.5, anchor="center")  # center in window
 
-      pygame.display.update()
+# Create buttons
+btn1 = tk.Button(button_frame, text="Calibration", command=on_button1, height=1, width=20,
+                 font=("Helvetica", 12, "bold"))
+btn2 = tk.Button(button_frame, text="Validation", command=on_button2, height=1, width=20,
+                 font=("Helvetica", 12, "bold"))
+btn3 = tk.Button(button_frame, text="Eye-Gazing", command=on_button3, height=1, width=20,
+                 font=("Helvetica", 12, "bold"))
 
-    pygame.quit()
+# Pack buttons vertically
+btn1.pack(pady=10)
+btn2.pack(pady=10)
+btn3.pack(pady=10)
+
+# Bind Esc key to quit
+root.bind("<Escape>", on_esc)
+
+# Run the app
+root.mainloop()
