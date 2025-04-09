@@ -1,4 +1,3 @@
-import sys
 import cv2
 import mediapipe as mp
 import threading
@@ -19,8 +18,11 @@ class Smoother:
         return self.smoothed.astype(int)
 
 
-class FaceRecognizer:
+class Detector:
     def __init__(self, camera):
+        # camera
+        self.camera = camera
+
         # FACE DETECTION MODEL
         self.mp_face_detection = mp.solutions.face_detection
         self.face_detector = self.mp_face_detection.FaceDetection(min_detection_confidence=0.8)
@@ -49,15 +51,16 @@ class FaceRecognizer:
                                }
 
         # Smoothers for each facial feature
-        self.eye_smoothers = {
-            "left_eye": Smoother(alpha=0.6),
-            "right_eye": Smoother(alpha=0.6),
-            "left_iris": Smoother(alpha=0.6),
-            "right_iris": Smoother(alpha=0.6)
+        self.face_box_smoother ={
+            "face_box": Smoother(alpha=0.4)
         }
 
-        # camera
-        self.camera = camera
+        self.eye_smoothers = {
+            "left_eye": Smoother(alpha=0.4),
+            "right_eye": Smoother(alpha=0.4),
+            "left_iris": Smoother(alpha=0.4),
+            "right_iris": Smoother(alpha=0.4)
+        }
 
         # threads
         self.detect_face_thread = threading.Thread(target=self.detect_face, daemon=True)
@@ -79,7 +82,8 @@ class FaceRecognizer:
                         self.face_box_location = detection.location_data.relative_bounding_box
                         self.camera.face_box = self.face_box_location
                 else:
-                    print("No face detected")
+                    # print("No face detected")
+                    pass
             else:
                 self.stop()
 
@@ -129,17 +133,18 @@ class FaceRecognizer:
                             if i in self.RIGHT_IRIS_LANDMARKS:
                                 new_landmarks["right_iris"].append((x, y))
 
-                        # Apply EMA smoothing
+                        # Apply EMA smoothing to iris
                         for key in self.mesh_landmarks.keys():
                             if key == "l_iris_center" or key == "r_iris_center":
                                 continue
-
                             if new_landmarks[key]:
                                 self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
-                with self.camera.landmarks_lock:
-                    self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
-                    self.mesh_landmarks["r_iris_center"] = self.iris_center(new_landmarks["right_iris"])
-                    self.camera.face_landmarks = self.mesh_landmarks.copy()
+
+                #with self.camera.landmarks_lock:
+                self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
+                self.mesh_landmarks["r_iris_center"] = self.iris_center(new_landmarks["right_iris"])
+                self.camera.eyes_landmarks = self.mesh_landmarks.copy()
+
                 # Reset mesh_landmarks
                 self.mesh_landmarks = {
                     "left_eye": [], "right_eye": [],

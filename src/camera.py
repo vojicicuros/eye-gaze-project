@@ -5,7 +5,6 @@ import threading
 class Camera:
 
     def __init__(self):
-
         self.landmarks_lock = threading.Lock()  # Create a lock
 
         self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -18,10 +17,11 @@ class Camera:
         success, self.feed = self.cap.read()
         self.running = True
         self.face_box = None
-        self.face_landmarks = None
+        self.eyes_landmarks = None
 
         self.get_feed_thread = threading.Thread(target=self.get_feed, daemon=True)
-        self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)  # Start thread within class
+        self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)
+
     def draw_face_rectangle(self, img):
         h, w, _ = img.shape  # Get frame dimensions
         # Convert relative bbox coordinates to pixel values
@@ -41,17 +41,17 @@ class Camera:
         keys_iris = ["left_iris", "right_iris"]
         keys_iris_center = ["l_iris_center", "r_iris_center"]
         with self.landmarks_lock:
-            if self.face_landmarks:
+            if self.eyes_landmarks:
                 for key in keys_eyes:
-                    for landmark in self.face_landmarks[key]:
+                    for landmark in self.eyes_landmarks[key]:
                         cv2.circle(img, (landmark[0], landmark[1]), 1, (0, 0, 255), 1)
 
                 for key in keys_iris:
-                    for landmark in self.face_landmarks[key]:
+                    for landmark in self.eyes_landmarks[key]:
                         cv2.circle(img, (landmark[0], landmark[1]), 1, (255, 0, 0), 1)
 
                 for key in keys_iris_center:
-                    cv2.circle(img, (self.face_landmarks[key][0], self.face_landmarks[key][1]), 1, (255, 255, 255), 1)
+                    cv2.circle(img, (self.eyes_landmarks[key][0], self.eyes_landmarks[key][1]), 1, (255, 255, 255), 1)
 
     def show_in_window(self, win_name, img):
         cv2.namedWindow(win_name)  # Create a named window
@@ -69,19 +69,17 @@ class Camera:
     def display_feed(self, face_box=None):
         while self.running:
             if self.feed is not None:
+                # self.feed = self.image_preprocessing(self.feed)
                 self.show_in_window(win_name='Camera Feed', img=self.feed)
 
-
-    def edit_frame(self, frame):
-        frame = cv2.flip(frame, 1)
+    def image_preprocessing(self, frame):
+        #frame = cv2.flip(frame, 1)
         return frame
 
     def get_feed(self):
-
         while self.running:
             # Capture frame-by-frame
             success, self.feed = self.cap.read()
-            # self.feed = self.edit_frame(self.feed)
             if not success:
                 continue
 
