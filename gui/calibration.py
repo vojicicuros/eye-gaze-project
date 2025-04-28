@@ -66,7 +66,19 @@ class Calibration:
 
             time.sleep(0.01)
         iris_data_dict["screen_position"] = self.screen_positions[1:]
-        self.save_iris_data(data=iris_data_dict)
+        iris_data_list = []
+        for l_iris, r_iris, screen_pos in zip(
+                iris_data_dict["l_iris"],
+                iris_data_dict["r_iris"],
+                self.screen_positions[1:]
+        ):
+            iris_data_list.append({
+                "l_iris": l_iris,
+                "r_iris": r_iris,
+                "screen_position": screen_pos
+            })
+
+        self.save_iris_data(data=iris_data_list)
 
     def save_iris_data(self, data):
         file_path = os.path.join("data", "iris_data.json")
@@ -76,7 +88,7 @@ class Calibration:
         else:
             existing_data = []
 
-        existing_data.append(data)
+        existing_data.extend(data)
         with open(file_path, 'w') as f:
             json.dump(existing_data, f, indent=4)
             print("Saved data into .json file.")
