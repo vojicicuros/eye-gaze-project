@@ -1,4 +1,4 @@
-### Eye Gaze Estimation Using a Webcam
+# Eye Gaze Estimation Using a Webcam
 ## Overview
 This project focuses on the development of open-source software for real-time eye gaze estimation using a standard webcam. The primary goal is to create a low-cost, accessible solution for tracking eye movement during reading tasks without the need for expensive, specialized hardware. The software aims to support cognitive and educational research, user interface optimization, and accessibility studies by enabling the detection of the user's gaze points as they interact with textual content.
 
