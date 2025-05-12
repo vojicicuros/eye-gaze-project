@@ -121,7 +121,7 @@ class GazeTracker:
     def import_model(self):
         model_path = os.path.join("data", "linear_model.joblib")
         if os.path.exists(model_path):
-            print("Loading pretrained model.")
+            print(f"Loading pretrained model from {model_path}.")
             return joblib.load(model_path)
         else:
             print("No pretrained model found. Using a new one.")
