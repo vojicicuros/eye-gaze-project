@@ -1,6 +1,10 @@
 import mediapipe as mp
 import cv2
 
+"""
+This file is used for adjusting eye landmark values inside of FaceMeshDetector class
+Testing purposes only.
+"""
 
 class FaceMeshDetector:
 
@@ -16,8 +20,32 @@ class FaceMeshDetector:
         self.LEFT_IRIS_LANDMARKS = [474, 475, 477, 476]
         self.RIGHT_IRIS_LANDMARKS = [469, 470, 471, 472]
 
+    def iris_center(self, iris_landmarks):
+        x1, y1 = iris_landmarks[0]
+        x2, y2 = iris_landmarks[1]
+        x3, y3 = iris_landmarks[2]
+        x4, y4 = iris_landmarks[3]
+
+        # Koeficijenti pravaca
+        k1 = (y3 - y1) / (x3 - x1) if x3 != x1 else float('inf')
+        k2 = (y4 - y2) / (x4 - x2) if x4 != x2 else float('inf')
+
+        if k1 == float('inf'):
+            x_p = x1
+            y_p = y2 + k2 * (x_p - x2)
+        elif k2 == float('inf'):
+            x_p = x2
+            y_p = y1 + k1 * (x_p - x1)
+        else:
+            x_p = (k1 * x1 - k2 * x2 + y2 - y1) / (k1 - k2)
+            y_p = y1 + k1 * (x_p - x1)
+        x_p = int(x_p)
+        y_p = int(y_p)
+        return x_p, y_p
+
     def findMeshInFace(self, img):
-        landmarks = {"left_eye": [], "right_eye": [], "left_iris": [], "right_iris": []}
+        landmarks = {"left_eye": [], "right_eye": [], "left_iris": [], "right_iris": [],
+                     "l_iris_center": [], "r_iris_center": []}
         imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.faceMesh.process(imgRGB)
 
@@ -35,6 +63,11 @@ class FaceMeshDetector:
                         landmarks["left_iris"].append((x, y))
                     if i in self.RIGHT_IRIS_LANDMARKS:
                         landmarks["right_iris"].append((x, y))
+
+        # with self.camera.landmarks_lock:
+        landmarks["l_iris_center"] = self.iris_center(landmarks["left_iris"])
+        landmarks["r_iris_center"] = self.iris_center(landmarks["right_iris"])
+
         return img, landmarks
 
 
@@ -53,12 +86,16 @@ if __name__ == '__main__':
         image, landmarks = detector.findMeshInFace(image)
         landmarks_eyes = ["left_eye", "right_eye"]
         landmarks_iris = ["left_iris", "right_iris"]
+        landmarks_iris_center = ["l_iris_center", "r_iris_center"]
+
         for key in landmarks_eyes:
             for landmark in landmarks[key]:
-                cv2.circle(image, (landmark[0], landmark[1]), 1, (255, 0, 255), 1)
+                cv2.circle(image, (landmark[0], landmark[1]), 1, (255, 0, 0), 1)
         for key in landmarks_iris:
             for landmark in landmarks[key]:
                 cv2.circle(image, (landmark[0], landmark[1]), 1, (0, 255, 0), 1)
+        for key in landmarks_iris_center:
+            cv2.circle(image, (landmarks[key][0], landmarks[key][1]), 1, (0, 0, 255), 1)
 
         cv2.namedWindow("Live feed")  # Create a named window
         cv2.moveWindow("Live feed", x=0, y=0)  # Move it to (x,y)

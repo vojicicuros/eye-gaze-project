@@ -3,6 +3,7 @@ import sys
 import threading
 from camera import Camera
 from detector import Detector
+from sklearn.linear_model import LinearRegression
 
 
 class GazeTracker:

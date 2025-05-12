@@ -56,10 +56,10 @@ class Detector:
         }
 
         self.eye_smoothers = {
-            "left_eye": Smoother(alpha=0.4),
-            "right_eye": Smoother(alpha=0.4),
-            "left_iris": Smoother(alpha=0.4),
-            "right_iris": Smoother(alpha=0.4)
+            "left_eye": Smoother(alpha=0.8),
+            "right_eye": Smoother(alpha=0.8),
+            "left_iris": Smoother(alpha=0.8),
+            "right_iris": Smoother(alpha=0.8)
         }
 
         # threads

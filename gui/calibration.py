@@ -34,8 +34,10 @@ class Calibration:
 
     def collect_iris_data(self):
         iris_data_dict = {
-            "l_iris": [],
-            "r_iris": [],
+            "l_iris_boundaries": [],
+            "r_iris_boundaries": [],
+            "l_iris_cent": [],
+            "r_iris_cent": [],
             "screen_position": []
         }
         l_iris_data = []
@@ -46,20 +48,22 @@ class Calibration:
         while not self.exit_event.is_set():
             if self.iris_data_flag:
                 was_collecting = True
-                l_iris = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
-                r_iris = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
+                l_iris_bound = self.gaze_tracker.detector.camera.eyes_landmarks.get("left_iris")
+                r_iris_bound = self.gaze_tracker.detector.camera.eyes_landmarks.get("right_iris")
+                l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
+                r_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
 
-                if l_iris is not None:
-                    l_iris_data.append(l_iris)
-                if r_iris is not None:
-                    r_iris_data.append(r_iris)
+                if l_iris_cent is not None:
+                    l_iris_data.append(l_iris_cent)
+                if r_iris_cent is not None:
+                    r_iris_data.append(r_iris_cent)
 
             else:
                 # Only append once when iris_data_flag switches from True to False
                 if was_collecting:
                     if l_iris_data and r_iris_data:
-                        iris_data_dict["l_iris"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
-                        iris_data_dict["r_iris"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
+                        iris_data_dict["l_iris_cent"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
+                        iris_data_dict["r_iris_cent"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
                     l_iris_data = []
                     r_iris_data = []
                     was_collecting = False  # Reset flag to prevent repeated appending
@@ -68,13 +72,13 @@ class Calibration:
         iris_data_dict["screen_position"] = self.screen_positions[1:]
         iris_data_list = []
         for l_iris, r_iris, screen_pos in zip(
-                iris_data_dict["l_iris"],
-                iris_data_dict["r_iris"],
+                iris_data_dict["l_iris_cent"],
+                iris_data_dict["r_iris_cent"],
                 self.screen_positions[1:]
         ):
             iris_data_list.append({
-                "l_iris": l_iris,
-                "r_iris": r_iris,
+                "l_iris_cent": l_iris,
+                "r_iris_cent": r_iris,
                 "screen_position": screen_pos
             })
 
@@ -118,7 +122,7 @@ class Calibration:
             time.sleep(collapse_time)
         self.iris_data_flag = False
         end_time = time.time()
-        print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
+        #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
     def calculate_positions(self, screen_height, screen_width, num_of_dots):
         n = num_of_dots
