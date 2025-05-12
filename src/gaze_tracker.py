@@ -1,8 +1,13 @@
 import os
 import sys
 import threading
-from camera_feed import Camera
-from landmark_detector import Detector
+
+import joblib
+from matplotlib import pyplot as plt
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+from .camera_feed import Camera
+from .landmark_detector import Detector
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import json
@@ -13,12 +18,14 @@ class GazeTracker:
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
 
+
         # Initialize the model
-        self.model = LinearRegression()
+        self.model = self.import_model()
 
         from gui.calibration import Calibration
         from gui.validation import Validation
 
+        self.screen_positions = None
         self.calibration = Calibration(self)
         self.validation = Validation(self)
 
@@ -111,6 +118,15 @@ class GazeTracker:
         plt.tight_layout()
         plt.show()
 
+    def import_model(self):
+        model_path = os.path.join("data", "linear_model.joblib")
+        if os.path.exists(model_path):
+            print("Loading pretrained model.")
+            return joblib.load(model_path)
+        else:
+            print("No pretrained model found. Using a new one.")
+            return LinearRegression()
+
     def train_linear_model(self):
         file_path = os.path.join("data", "iris_data.json")
         X, y = self.prepare_data(file_path=file_path)
@@ -118,7 +134,24 @@ class GazeTracker:
         # Train model
         print("Training linear model.")
         self.model.fit(X, y)
-        print("Linear model trained.")
+
+        # Save model
+        model_path = os.path.join("data", "linear_model.joblib")
+        joblib.dump(self.model, model_path)
+        print(f"Linear model trained and saved to {model_path}.")
+
+    def save_iris_data(self, data):
+        file_path = os.path.join("data", "iris_data.json")
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                existing_data = json.load(f)
+        else:
+            existing_data = []
+
+        existing_data.extend(data)
+        with open(file_path, 'w') as f:
+            json.dump(existing_data, f, indent=4)
+            print("Saved data into .json file.")
 
     def env_cleanup(self):
         file_path = os.path.join("data", "iris_data.json")

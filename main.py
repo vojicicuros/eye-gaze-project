@@ -13,13 +13,16 @@ if __name__ == '__main__':
     gaze_tracker.calibration.iris_data_thread.start()
 
     gaze_tracker.cam.get_feed_thread.start()
-    #gaze_tracker.cam.display_feed_thread.start()
+    gaze_tracker.cam.display_feed_thread.start()
     gaze_tracker.detector.detect_face_thread.start()
     gaze_tracker.detector.face_mesh_thread.start()
 
+    #gaze_tracker.validation.start_validation_thread.start()
+
     gaze_tracker.cam.get_feed_thread.join()
-    #gaze_tracker.cam.display_feed_thread.join()
+    gaze_tracker.cam.display_feed_thread.join()
     gaze_tracker.detector.detect_face_thread.join()
     gaze_tracker.detector.face_mesh_thread.join()
+
 
 

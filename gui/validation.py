@@ -20,7 +20,7 @@ collapse_time = 0.05
 class Validation:
     def __init__(self, gaze_tracker: GazeTracker):
         self.gaze_tracker = gaze_tracker
-        self.screen_positions = None
+        self.positions = gaze_tracker.screen_positions
 
         self.start_validation_thread = threading.Thread(target=self.start_validation)
         self.exit_event = threading.Event()
@@ -52,17 +52,6 @@ class Validation:
         end_time = time.time()
         print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
-    def calculate_positions(self, screen_height, screen_width):
-        # Define 16 circle positions (4 in each row)
-        row_step = (screen_height - 2 * padding) // 3
-        col_step = (screen_width - 2 * padding) // 3
-
-        positions = [(screen_width // 2, screen_height // 2)] + [
-            (padding + i * col_step, padding + j * row_step)
-            for j in range(4) for i in range(4)
-        ]
-        return positions
-
     def stop_validation(self):
         self.exit_event.set()
         pygame.quit()
@@ -76,11 +65,8 @@ class Validation:
         screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
         pygame.display.set_caption("Validation Display")
 
-        positions = self.calculate_positions(screen_height, screen_width)
-        self.screen_positions = positions.copy()
-
-        print("Spot Positions:")
-        current_x, current_y = positions[0]
+        #print("Spot Positions:")
+        current_x, current_y = self.positions[0]
 
         # Display validation button
         font = pygame.font.Font(None, 100)
@@ -101,16 +87,14 @@ class Validation:
 
         # Background transition from black to white
         for step in range(transition_steps + 1):
-            bg_color = (
-                int(self.interpolate(black[0], white[0], step, transition_steps)),
-                int(self.interpolate(black[1], white[1], step, transition_steps)),
-                int(self.interpolate(black[2], white[2], step, transition_steps))
-            )
+            bg_color = (int(self.interpolate(black[0], white[0], step, transition_steps)),
+                        int(self.interpolate(black[1], white[1], step, transition_steps)),
+                        int(self.interpolate(black[2], white[2], step, transition_steps)))
             screen.fill(bg_color)
             pygame.display.flip()
             time.sleep(transition_time)
 
-        for idx, (x, y) in enumerate(positions):
+        for idx, (x, y) in enumerate(self.positions):
             for step in range(transition_steps + 1):
                 intermediate_x = int(self.interpolate(current_x, x, step, transition_steps))
                 intermediate_y = int(self.interpolate(current_y, y, step, transition_steps))
@@ -136,3 +120,9 @@ class Validation:
 
             time.sleep(0.1)
         self.stop_validation()
+
+
+# Debugging purposes
+if __name__ == "__main__":
+    val = Validation()
+    val.start_validation()
