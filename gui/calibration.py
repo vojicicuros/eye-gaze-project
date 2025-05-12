@@ -34,10 +34,8 @@ class Calibration:
 
     def collect_iris_data(self):
         iris_data_dict = {
-            "l_iris_boundaries": [],
-            "r_iris_boundaries": [],
-            "l_iris_cent": [],
-            "r_iris_cent": [],
+            "l_iris_center": [],
+            "r_iris_center": [],
             "screen_position": []
         }
         l_iris_data = []
@@ -48,8 +46,6 @@ class Calibration:
         while not self.exit_event.is_set():
             if self.iris_data_flag:
                 was_collecting = True
-                l_iris_bound = self.gaze_tracker.detector.camera.eyes_landmarks.get("left_iris")
-                r_iris_bound = self.gaze_tracker.detector.camera.eyes_landmarks.get("right_iris")
                 l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
                 r_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
 
@@ -62,8 +58,8 @@ class Calibration:
                 # Only append once when iris_data_flag switches from True to False
                 if was_collecting:
                     if l_iris_data and r_iris_data:
-                        iris_data_dict["l_iris_cent"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
-                        iris_data_dict["r_iris_cent"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
+                        iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
+                        iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
                     l_iris_data = []
                     r_iris_data = []
                     was_collecting = False  # Reset flag to prevent repeated appending
@@ -72,13 +68,13 @@ class Calibration:
         iris_data_dict["screen_position"] = self.screen_positions[1:]
         iris_data_list = []
         for l_iris, r_iris, screen_pos in zip(
-                iris_data_dict["l_iris_cent"],
-                iris_data_dict["r_iris_cent"],
+                iris_data_dict["l_iris_center"],
+                iris_data_dict["r_iris_center"],
                 self.screen_positions[1:]
         ):
             iris_data_list.append({
-                "l_iris_cent": l_iris,
-                "r_iris_cent": r_iris,
+                "l_iris_center": l_iris,
+                "r_iris_center": r_iris,
                 "screen_position": screen_pos
             })
 
@@ -210,6 +206,9 @@ class Calibration:
 
             time.sleep(0.1)
         self.stop_calibration()
+
+        # Model training
+        self.gaze_tracker.train_linear_model()
 
 
 # Debugging purposes
