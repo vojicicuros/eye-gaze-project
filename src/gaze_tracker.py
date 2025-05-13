@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+import time
 
 import joblib
 from matplotlib import pyplot as plt
@@ -27,12 +28,45 @@ collapse_time = 0.05
 num_of_dots = 3  # 3x3
 
 
+def prepare_data(self, file_path):
+    """
+    Prepare the data from the json. Extract iris landmarks and screen positions.
+    """
+    print(f"Extracting data from {file_path} file.")
+    with open(file_path, 'r') as file:
+        json_data = json.load(file)
+
+    features = []
+    screen_positions = []
+
+    for entry in json_data:
+        # Extract iris landmarks
+        l_iris_center = entry["l_iris_center"]
+        r_iris_center = entry["r_iris_center"]
+
+        # Combine iris boundary points and centers (10 points total)
+        feature_vector = l_iris_center + r_iris_center
+
+        # Extract screen position
+        screen_position = entry["screen_position"]
+
+        # Append to feature list
+        features.append(feature_vector)
+        screen_positions.append(screen_position)
+
+    # Convert to numpy arrays for model training
+    features = np.array(features)
+    screen_positions = np.array(screen_positions)
+
+    print("Data extracted.")
+    return features, screen_positions
+
+
 class GazeTracker:
     def __init__(self):
         self.env_cleanup()
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
-
 
         # Initialize the model
         self.model = self.import_model()
@@ -44,7 +78,8 @@ class GazeTracker:
         self.calibration = Calibration(self)
         self.validation = Validation(self)
 
-        #self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
+        # self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
+        self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
         self.exit_event = threading.Event()
 
     def predict(self, iris_landmarks):
@@ -54,44 +89,11 @@ class GazeTracker:
         prediction = self.model.predict([iris_landmarks])
         return prediction[0]
 
-    def prepare_data(self, file_path):
-        """
-        Prepare the data from the json. Extract iris landmarks and screen positions.
-        """
-        print(f"Extracting data from {file_path} file.")
-        with open(file_path, 'r') as file:
-            json_data = json.load(file)
-
-        features = []
-        screen_positions = []
-
-        for entry in json_data:
-            # Extract iris landmarks
-            l_iris_center = entry["l_iris_center"]
-            r_iris_center = entry["r_iris_center"]
-
-            # Combine iris boundary points and centers (10 points total)
-            feature_vector = l_iris_center + r_iris_center
-
-            # Extract screen position
-            screen_position = entry["screen_position"]
-
-            # Append to feature list
-            features.append(feature_vector)
-            screen_positions.append(screen_position)
-
-        # Convert to numpy arrays for model training
-        features = np.array(features)
-        screen_positions = np.array(screen_positions)
-
-        print("Data extracted.")
-        return features, screen_positions
-
     def validate(self, json_data):
         """
         Validate the model by calculating the error metrics on the calibration data.
         """
-        features, actual_screen_positions = self.prepare_data(json_data)
+        features, actual_screen_positions = prepare_data(json_data)
 
         # Predict screen positions for the calibration data
         predicted_screen_positions = self.model.predict(features)
@@ -155,6 +157,47 @@ class GazeTracker:
         joblib.dump(self.model, model_path)
         print(f"Linear model trained and saved to {model_path}.")
 
+    def collect_iris_data(self):
+
+        iris_data_dict = {
+            "l_iris_center": [],
+            "r_iris_center": [],
+            "screen_position": []
+        }
+        l_iris_data = []
+        r_iris_data = []
+        was_collecting = False  # Tracks the previous state of the flag
+
+        while not self.calibration.exit_event.is_set():
+            if self.calibration.iris_data_flag:
+                was_collecting = True
+                l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
+                r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
+
+                if l_iris_cent is not None:
+                    l_iris_data.append(l_iris_cent)
+                if r_iris_cent is not None:
+                    r_iris_data.append(r_iris_cent)
+            else:
+                # Only append once when iris_data_flag switches from True to False
+                if was_collecting:
+                    if l_iris_data and r_iris_data:
+                        iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
+                        iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
+                    l_iris_data = []
+                    r_iris_data = []
+                    was_collecting = False  # Reset flag to prevent repeated appending
+            time.sleep(0.01)
+
+        iris_data_dict["screen_position"] = self.screen_positions[1:]
+        iris_data_list = []
+        for l_iris, r_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
+                                              iris_data_dict["r_iris_center"],
+                                              self.screen_positions[1:]):
+            iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
+
+        self.save_iris_data(data=iris_data_list)
+
     def save_iris_data(self, data):
         file_path = os.path.join("data", "iris_data.json")
         if os.path.exists(file_path):
@@ -177,13 +220,10 @@ class GazeTracker:
             "No json file."
         print("Environment is fine.")
 
-
-    def calculate_positions(self, num_of_dots):
+    def calculate_positions(self, n=num_of_dots):
         monitor = get_monitors()[0]
         screen_width = monitor.width
         screen_height = monitor.height
-
-        n = num_of_dots
 
         row_step = (screen_height - 2 * padding) // (n-1)
         col_step = (screen_width - 2 * padding) // (n-1)

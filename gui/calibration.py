@@ -27,49 +27,49 @@ class Calibration:
         self.iris_data_flag = False
 
         self.start_calibration_thread = threading.Thread(target=self.start_calibration)
-        self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
+        # self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
         self.exit_event = threading.Event()
 
-    def collect_iris_data(self):
-
-        iris_data_dict = {
-            "l_iris_center": [],
-            "r_iris_center": [],
-            "screen_position": []
-        }
-        l_iris_data = []
-        r_iris_data = []
-        was_collecting = False  # Tracks the previous state of the flag
-
-        while not self.exit_event.is_set():
-            if self.iris_data_flag:
-                was_collecting = True
-                l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
-                r_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
-
-                if l_iris_cent is not None:
-                    l_iris_data.append(l_iris_cent)
-                if r_iris_cent is not None:
-                    r_iris_data.append(r_iris_cent)
-            else:
-                # Only append once when iris_data_flag switches from True to False
-                if was_collecting:
-                    if l_iris_data and r_iris_data:
-                        iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
-                        iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
-                    l_iris_data = []
-                    r_iris_data = []
-                    was_collecting = False  # Reset flag to prevent repeated appending
-            time.sleep(0.01)
-
-        iris_data_dict["screen_position"] = self.gaze_tracker.screen_positions[1:]
-        iris_data_list = []
-        for l_iris, r_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
-                                              iris_data_dict["r_iris_center"],
-                                              self.gaze_tracker.screen_positions[1:]):
-            iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
-
-        self.gaze_tracker.save_iris_data(data=iris_data_list)
+    # def collect_iris_data(self):
+    #
+    #     iris_data_dict = {
+    #         "l_iris_center": [],
+    #         "r_iris_center": [],
+    #         "screen_position": []
+    #     }
+    #     l_iris_data = []
+    #     r_iris_data = []
+    #     was_collecting = False  # Tracks the previous state of the flag
+    #
+    #     while not self.exit_event.is_set():
+    #         if self.iris_data_flag:
+    #             was_collecting = True
+    #             l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
+    #             r_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
+    #
+    #             if l_iris_cent is not None:
+    #                 l_iris_data.append(l_iris_cent)
+    #             if r_iris_cent is not None:
+    #                 r_iris_data.append(r_iris_cent)
+    #         else:
+    #             # Only append once when iris_data_flag switches from True to False
+    #             if was_collecting:
+    #                 if l_iris_data and r_iris_data:
+    #                     iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
+    #                     iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
+    #                 l_iris_data = []
+    #                 r_iris_data = []
+    #                 was_collecting = False  # Reset flag to prevent repeated appending
+    #         time.sleep(0.01)
+    #
+    #     iris_data_dict["screen_position"] = self.gaze_tracker.screen_positions[1:]
+    #     iris_data_list = []
+    #     for l_iris, r_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
+    #                                           iris_data_dict["r_iris_center"],
+    #                                           self.gaze_tracker.screen_positions[1:]):
+    #         iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
+    #
+    #     self.gaze_tracker.save_iris_data(data=iris_data_list)
 
     def interpolate(self, start, end, step, total_steps):
         return start + (end - start) * (step / total_steps)
@@ -98,16 +98,8 @@ class Calibration:
         end_time = time.time()
         #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
-    def stop_calibration(self):
-        self.exit_event.set()
-        self.iris_data_thread.join()
-        pygame.quit()
-        print('Exiting Calibration')
-
     def start_calibration(self):
-
-        print('AAAAAA')
-        # Calibration GUI + location logic
+        # Calibration GUI
         pygame.init()
         info = pygame.display.Info()
         screen_width, screen_height = info.current_w, info.current_h
@@ -173,11 +165,17 @@ class Calibration:
                 self.shrink_circle_at(screen, x, y, radius, collapse_steps, collapse_time, white, red, black)
 
             time.sleep(0.1)
+
         self.stop_calibration()
 
         # Model training
         self.gaze_tracker.train_linear_model()
 
+    def stop_calibration(self):
+        self.exit_event.set()
+        # self.iris_data_thread.join()
+        pygame.quit()
+        print('Exiting Calibration')
 
 # Debugging purposes
 # if __name__ == "__main__":
