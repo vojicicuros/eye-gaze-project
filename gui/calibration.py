@@ -1,12 +1,12 @@
-import json
-import numpy as np
 import pygame
 import threading
 import time
 import sys
 import os
+from .base_gui import GazeGUIBase
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.gaze_tracker import GazeTracker
+
 
 # constants
 black = (0, 0, 0)
@@ -27,49 +27,7 @@ class Calibration:
         self.iris_data_flag = False
 
         self.start_calibration_thread = threading.Thread(target=self.start_calibration)
-        # self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
         self.exit_event = threading.Event()
-
-    # def collect_iris_data(self):
-    #
-    #     iris_data_dict = {
-    #         "l_iris_center": [],
-    #         "r_iris_center": [],
-    #         "screen_position": []
-    #     }
-    #     l_iris_data = []
-    #     r_iris_data = []
-    #     was_collecting = False  # Tracks the previous state of the flag
-    #
-    #     while not self.exit_event.is_set():
-    #         if self.iris_data_flag:
-    #             was_collecting = True
-    #             l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
-    #             r_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("r_iris_center")
-    #
-    #             if l_iris_cent is not None:
-    #                 l_iris_data.append(l_iris_cent)
-    #             if r_iris_cent is not None:
-    #                 r_iris_data.append(r_iris_cent)
-    #         else:
-    #             # Only append once when iris_data_flag switches from True to False
-    #             if was_collecting:
-    #                 if l_iris_data and r_iris_data:
-    #                     iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
-    #                     iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
-    #                 l_iris_data = []
-    #                 r_iris_data = []
-    #                 was_collecting = False  # Reset flag to prevent repeated appending
-    #         time.sleep(0.01)
-    #
-    #     iris_data_dict["screen_position"] = self.gaze_tracker.screen_positions[1:]
-    #     iris_data_list = []
-    #     for l_iris, r_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
-    #                                           iris_data_dict["r_iris_center"],
-    #                                           self.gaze_tracker.screen_positions[1:]):
-    #         iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
-    #
-    #     self.gaze_tracker.save_iris_data(data=iris_data_list)
 
     def interpolate(self, start, end, step, total_steps):
         return start + (end - start) * (step / total_steps)
@@ -106,10 +64,8 @@ class Calibration:
         screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
         pygame.display.set_caption("Calibration Display")
 
-        #positions = self.calculate_positions(screen_height, screen_width, num_of_dots)
         positions = self.gaze_tracker.screen_positions
 
-        #print("Spot Positions:")
         current_x, current_y = positions[0]
 
         # Display calibration button
@@ -126,7 +82,8 @@ class Calibration:
                 if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                     waiting = False
                 elif event.type == pygame.QUIT:
-                    pygame.quit()
+                    #pygame.quit()
+                    self.stop_calibration()
                     return
 
         # Background transition from black to white
@@ -173,7 +130,6 @@ class Calibration:
 
     def stop_calibration(self):
         self.exit_event.set()
-        # self.iris_data_thread.join()
         pygame.quit()
         print('Exiting Calibration')
 

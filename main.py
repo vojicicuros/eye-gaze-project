@@ -4,7 +4,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 from src.camera_feed import Camera
 from src.landmark_detector import Detector
 from src.gaze_tracker import GazeTracker
-sys.path.append(os.path.join(os.path.dirname(__file__), 'gui'))
 
 
 if __name__ == '__main__':
