@@ -50,7 +50,7 @@ class Validation:
             time.sleep(collapse_time)
         self.iris_data_flag = False
         end_time = time.time()
-        print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
+        #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
     def stop_validation(self):
         self.exit_event.set()
@@ -66,6 +66,7 @@ class Validation:
         pygame.display.set_caption("Validation Display")
 
         #print("Spot Positions:")
+        #print(self.positions)
         current_x, current_y = self.positions[0]
 
         # Display validation button
@@ -75,7 +76,6 @@ class Validation:
         screen.fill(black)
         screen.blit(button_text, button_rect)
         pygame.display.flip()
-
         waiting = True
         while waiting:
             for event in pygame.event.get():

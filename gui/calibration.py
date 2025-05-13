@@ -28,7 +28,6 @@ class Calibration:
 
         self.start_calibration_thread = threading.Thread(target=self.start_calibration)
         self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
-        self.iris_data_thread.daemon = True  # Daemon thread will exit when the main program exits
         self.exit_event = threading.Event()
 
     def collect_iris_data(self):
@@ -99,18 +98,6 @@ class Calibration:
         end_time = time.time()
         #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
-    def calculate_positions(self, screen_height, screen_width, num_of_dots):
-        n = num_of_dots
-
-        row_step = (screen_height - 2 * padding) // (n-1)
-        col_step = (screen_width - 2 * padding) // (n-1)
-
-        positions = [(screen_width // 2, screen_height // 2)] + [
-            (padding + i * col_step, padding + j * row_step)
-            for j in range(n) for i in range(n)
-        ]
-        return positions
-
     def stop_calibration(self):
         self.exit_event.set()
         self.iris_data_thread.join()
@@ -118,6 +105,8 @@ class Calibration:
         print('Exiting Calibration')
 
     def start_calibration(self):
+
+        print('AAAAAA')
         # Calibration GUI + location logic
         pygame.init()
         info = pygame.display.Info()
@@ -126,9 +115,7 @@ class Calibration:
         pygame.display.set_caption("Calibration Display")
 
         #positions = self.calculate_positions(screen_height, screen_width, num_of_dots)
-        positions = self.gaze_tracker.screen_positions = self.calculate_positions(screen_height,
-                                                                                  screen_width,
-                                                                                  num_of_dots)
+        positions = self.gaze_tracker.screen_positions
 
         #print("Spot Positions:")
         current_x, current_y = positions[0]

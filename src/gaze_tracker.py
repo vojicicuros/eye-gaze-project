@@ -11,6 +11,21 @@ from .landmark_detector import Detector
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import json
+from screeninfo import get_monitors
+
+
+# constants
+black = (0, 0, 0)
+red = (255, 0, 0)
+white = (255, 255, 255)
+radius = 20
+padding = 50
+transition_steps = 15
+transition_time = 0.02
+collapse_steps = 20
+collapse_time = 0.05
+num_of_dots = 3  # 3x3
+
 
 class GazeTracker:
     def __init__(self):
@@ -25,7 +40,7 @@ class GazeTracker:
         from gui.calibration import Calibration
         from gui.validation import Validation
 
-        self.screen_positions = None
+        self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
         self.validation = Validation(self)
 
@@ -161,6 +176,23 @@ class GazeTracker:
         else:
             "No json file."
         print("Environment is fine.")
+
+
+    def calculate_positions(self, num_of_dots):
+        monitor = get_monitors()[0]
+        screen_width = monitor.width
+        screen_height = monitor.height
+
+        n = num_of_dots
+
+        row_step = (screen_height - 2 * padding) // (n-1)
+        col_step = (screen_width - 2 * padding) // (n-1)
+
+        positions = [(screen_width // 2, screen_height // 2)] + [
+            (padding + i * col_step, padding + j * row_step)
+            for j in range(n) for i in range(n)
+        ]
+        return positions
 
 
 
