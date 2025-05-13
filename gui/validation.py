@@ -33,8 +33,6 @@ class Validation:
         pygame.draw.line(surface, color, (x, y - size), (x, y + size), 5)
 
     def shrink_circle_at(self, screen, x, y):
-        start_time = time.time()
-        self.iris_data_flag = True
         for step in range(collapse_steps + 1):
             shrinking_radius = int(self.interpolate(radius, 0, step, collapse_steps))
             screen.fill(white)
@@ -48,9 +46,6 @@ class Validation:
             self.draw_crosshair(screen, x, y)
             pygame.display.flip()
             time.sleep(collapse_time)
-        self.iris_data_flag = False
-        end_time = time.time()
-        #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
     def stop_validation(self):
         self.exit_event.set()
@@ -65,8 +60,6 @@ class Validation:
         screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
         pygame.display.set_caption("Validation Display")
 
-        #print("Spot Positions:")
-        #print(self.positions)
         current_x, current_y = self.positions[0]
 
         # Display validation button
