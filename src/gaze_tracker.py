@@ -79,7 +79,7 @@ class GazeTracker:
         self.validation = Validation(self)
 
         # self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
-        self.iris_data_thread = threading.Thread(target=self.collect_iris_data)
+        self.iris_data_thread = threading.Thread(target=self.iris_data_feed)
         self.exit_event = threading.Event()
 
     def predict(self, iris_landmarks):
@@ -157,7 +157,7 @@ class GazeTracker:
         joblib.dump(self.model, model_path)
         print(f"Linear model trained and saved to {model_path}.")
 
-    def collect_iris_data(self):
+    def get_iris_data(self):
 
         iris_data_dict = {
             "l_iris_center": [],
@@ -196,9 +196,15 @@ class GazeTracker:
                                               self.screen_positions[1:]):
             iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
 
-        self.save_iris_data(data=iris_data_list)
+        return iris_data_list
 
-    def save_iris_data(self, data):
+    def iris_data_feed(self):
+
+        iris_data = self.get_iris_data()
+
+        self.save_data_to_file(data=iris_data)
+
+    def save_data_to_file(self, data):
         file_path = os.path.join("data", "iris_data.json")
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:

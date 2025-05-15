@@ -1,0 +1,81 @@
+GAZE DETECTION Problem
+================
+Gaze detection, or eye gaze tracking, is a technology that enables a computer to monitor where a person is looking
+on a screen or another device. This technology is particularly useful in human-computer interaction, allowing users
+to control a computer simply by looking at specific areas of the screen.
+
+Implementing such a system typically involves using special cameras that track the user's eye movements.
+With the help of sophisticated algorithms, the computer analyzes these movements and accurately determines where
+the user is focusing their gaze on the screen. Based on that information, the computer can respond in various ways,
+such as launching applications or interacting with user interface elements.
+
+This technology is especially beneficial for individuals with limited mobility, as well as in various professional
+and research fields where precise gaze tracking is required. It is also used in the development of VR (virtual reality)
+and AR (augmented reality) systems to create a more realistic interaction experience.
+
+Image Acquisition from a Webcam:
+The first step is to use an appropriate library or API to obtain a video stream from the webcam on the computer.
+Libraries like OpenCV or TensorFlow can be useful for this purpose.
+
+Face Detection:
+Once the video stream is acquired, the next step is to detect the user's face in each frame. You can use existing face
+detection algorithms such as Haar cascades or neural networks, which are implemented in libraries like OpenCV or dlib.
+
+Eye Detection:
+After detecting the face, the next step is to locate the eyes on the face. There are various algorithms for eye
+detection, and a popular approach is to use Haar cascades or deep learning models.
+
+Eye Movement Tracking:
+Once the eyes are identified, you can use algorithms to track eye movements in order to determine where the
+user is looking on the screen. These algorithms monitor changes in the position and size of the eyes from frame to
+frame to estimate the gaze direction.
+
+System Calibration:
+To ensure accuracy, the system needs to be calibrated for each user. This typically involves several steps in which
+specific elements are shown on the screen, and the system tracks the user's gaze to perform the calibration.
+
+Processing the Results:
+Finally, the results of the gaze tracking can be used for different purposes depending on the project's needs.
+For example, this data can be used to interact with a user interface or to collect analytical information about how
+users interact with software or a website.
+
+
+====================================================================================================================
+
+
+Gaze detection, odnosno praćenje pogleda, je tehnologija koja omogućava računaru da prati gde osoba gleda na ekranu
+monitora ili nekom drugom uređaju. Ova tehnologija je posebno korisna u interakciji čovek-računar, gde omogućava
+korisnicima da upravljaju računarom samo gledanjem u određene delove ekrana.
+
+Implementacija ovakvog sistema obično uključuje korišćenje posebnih kamera koje prate pokrete očiju korisnika.
+Pomoću sofisticiranih algoritama, računar analizira te pokrete i određuje tačno gde korisnik fiksira pogled na ekranu.
+Na osnovu tih informacija, računar može reagovati na različite načine, na primer, pokretanjem aplikacija
+ili interakcijom sa elementima korisničkog interfejsa.
+
+Ovakva tehnologija je korisna za osobe sa ograničenom pokretljivošću, kao i u različitim profesionalnim i istraživačkim
+oblastima gde je potrebno precizno praćenje pogleda. Takođe se koristi u razvoju VR (virtuelna stvarnost) i
+AR (proširena stvarnost) sistema radi stvaranja što realističnijeg iskustva interakcije.
+
+
+
+Akvizicija slike sa web kamere: Prvi korak je upotreba odgovarajuće biblioteke ili API-ja kako biste dobili video tok
+sa web kamere na računaru. Biblioteke poput OpenCV ili TensorFlow mogu biti korisne za ovu svrhu.
+Detekcija lica: Nakon što se dobije video tok, potrebno je detektovati lice korisnika u svakom frejmu.
+Možete koristiti postojeće algoritme detekcije lica, kao što su Haar kaskade ili neuralne mreže, koje su
+implementirane u bibliotekama poput OpenCV-a ili dlib-a.
+
+Detekcija očiju: Kada se lice detektuje, sledeći korak je lociranje očiju na licu.
+Postoje razni algoritmi za detekciju očiju, a popularan pristup je korišćenje
+Haar kaskada ili korišćenje deep learning modela.
+
+Praćenje pokreta očiju: Kada su oči identifikovane, možete koristiti algoritme za praćenje pokreta očiju kako
+biste odredili gde korisnik gleda na ekranu. Ovi algoritmi prate promene u položaju i veličini očiju iz
+frejma u frejm kako bi odredili pravac pogleda.
+
+Kalibracija sistema: Da bi sistem bio tačan, potrebno je kalibrirati ga za svakog korisnika.
+To obično uključuje nekoliko koraka tokom kojih se korisniku prikazuju određeni elementi na ekranu,
+a sistem prati njihov pogled kako bi se kalibrisao.
+
+Obrada rezultata: Na kraju, rezultati praćenja pogleda mogu se koristiti za različite svrhe u zavisnosti od
+potreba projekta. Na primer, možete koristiti te podatke za interakciju sa korisničkim interfejsom ili za prikupljanje
+analitičkih podataka o tome kako korisnici koriste softver ili web stranicu.

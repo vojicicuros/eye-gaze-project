@@ -9,6 +9,7 @@ from src.gaze_tracker import GazeTracker
 black = (0, 0, 0)
 red = (255, 0, 0)
 white = (255, 255, 255)
+relaxing_green = (133,153,134)
 radius = 20
 padding = 50
 transition_steps = 15
@@ -28,20 +29,20 @@ class Validation:
     def interpolate(self, start, end, step, total_steps):
         return start + (end - start) * (step / total_steps)
 
-    def draw_crosshair(self, surface, x, y, size=7, color=(0, 0, 0)):
+    def draw_crosshair(self, surface, x, y, size=7, color=white):
         pygame.draw.line(surface, color, (x - size, y), (x + size, y), 5)
         pygame.draw.line(surface, color, (x, y - size), (x, y + size), 5)
 
     def shrink_circle_at(self, screen, x, y):
         for step in range(collapse_steps + 1):
             shrinking_radius = int(self.interpolate(radius, 0, step, collapse_steps))
-            screen.fill(white)
+            screen.fill(black)
 
             # Permanent outer black border
-            pygame.draw.circle(screen, black, (x, y), radius, 3)
+            pygame.draw.circle(screen, white, (x, y), radius, 3)
 
-            pygame.draw.circle(screen, black, (x, y), shrinking_radius + 2)  # Shrinking outer border
-            pygame.draw.circle(screen, red, (x, y), shrinking_radius)
+            pygame.draw.circle(screen, white, (x, y), shrinking_radius + 2)  # Shrinking outer border
+            pygame.draw.circle(screen, relaxing_green, (x, y), shrinking_radius)
 
             self.draw_crosshair(screen, x, y)
             pygame.display.flip()
@@ -64,9 +65,9 @@ class Validation:
 
         # Display validation button
         font = pygame.font.Font(None, 100)
-        button_text = font.render("Validation", True, white)
+        button_text = font.render("Validation", True, black)
         button_rect = button_text.get_rect(center=(screen_width // 2, screen_height // 2))
-        screen.fill(black)
+        screen.fill(white)
         screen.blit(button_text, button_rect)
         pygame.display.flip()
         waiting = True
@@ -78,11 +79,11 @@ class Validation:
                     pygame.quit()
                     return
 
-        # Background transition from black to white
+        # Background transition from white to black
         for step in range(transition_steps + 1):
-            bg_color = (int(self.interpolate(black[0], white[0], step, transition_steps)),
-                        int(self.interpolate(black[1], white[1], step, transition_steps)),
-                        int(self.interpolate(black[2], white[2], step, transition_steps)))
+            bg_color = (int(self.interpolate(white[0], black[0], step, transition_steps)),
+                        int(self.interpolate(white[1], black[1], step, transition_steps)),
+                        int(self.interpolate(white[2], black[2], step, transition_steps)))
             screen.fill(bg_color)
             pygame.display.flip()
             time.sleep(transition_time)
@@ -92,9 +93,9 @@ class Validation:
                 intermediate_x = int(self.interpolate(current_x, x, step, transition_steps))
                 intermediate_y = int(self.interpolate(current_y, y, step, transition_steps))
 
-                screen.fill(white)
-                pygame.draw.circle(screen, black, (intermediate_x, intermediate_y), radius + 3)
-                pygame.draw.circle(screen, red, (intermediate_x, intermediate_y), radius)
+                screen.fill(black)
+                pygame.draw.circle(screen, white, (intermediate_x, intermediate_y), radius + 3)
+                pygame.draw.circle(screen, relaxing_green, (intermediate_x, intermediate_y), radius)
                 self.draw_crosshair(screen, intermediate_x, intermediate_y)
 
                 pygame.display.flip()

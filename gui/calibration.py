@@ -3,7 +3,6 @@ import threading
 import time
 import sys
 import os
-from .base_gui import GazeGUIBase
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.gaze_tracker import GazeTracker
 
@@ -32,12 +31,11 @@ class Calibration:
     def interpolate(self, start, end, step, total_steps):
         return start + (end - start) * (step / total_steps)
 
-    def draw_crosshair(self, surface, x, y, size=7, color=(0, 0, 0)):
+    def draw_crosshair(self, surface, x, y, size=7, color=black):
         pygame.draw.line(surface, color, (x - size, y), (x + size, y), 5)
         pygame.draw.line(surface, color, (x, y - size), (x, y + size), 5)
 
-    def shrink_circle_at(self, screen, x, y, radius, collapse_steps, collapse_time, white, red, black):
-        start_time = time.time()
+    def shrink_circle_at(self, screen, x, y):
         self.iris_data_flag = True
         for step in range(collapse_steps + 1):
             shrinking_radius = int(self.interpolate(radius, 0, step, collapse_steps))
@@ -53,8 +51,6 @@ class Calibration:
             pygame.display.flip()
             time.sleep(collapse_time)
         self.iris_data_flag = False
-        end_time = time.time()
-        #print(f"Shrinking circle at ({x},{y}) - time: {end_time-start_time}")
 
     def start_calibration(self):
         # Calibration GUI
@@ -82,7 +78,6 @@ class Calibration:
                 if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                     waiting = False
                 elif event.type == pygame.QUIT:
-                    #pygame.quit()
                     self.stop_calibration()
                     return
 
@@ -119,7 +114,7 @@ class Calibration:
 
             # Use the shrink_circle_at method here
             if idx != 0:
-                self.shrink_circle_at(screen, x, y, radius, collapse_steps, collapse_time, white, red, black)
+                self.shrink_circle_at(screen, x, y)
 
             time.sleep(0.1)
 

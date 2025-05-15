@@ -1,8 +1,5 @@
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-from src.camera_feed import Camera
-from src.landmark_detector import Detector
 from src.gaze_tracker import GazeTracker
 
 
@@ -29,8 +26,8 @@ if __name__ == '__main__':
     gaze_tracker.iris_data_thread.join()
 
     # Run validation (optional, blocking)
-    # gaze_tracker.validation.start_validation_thread.start()
-    # gaze_tracker.validation.start_validation_thread.join()
+    gaze_tracker.validation.start_validation_thread.start()
+    gaze_tracker.validation.start_validation_thread.join()
 
     # Wait for camera and detector threads to finish
     for thread in processing_threads:

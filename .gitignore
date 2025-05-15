@@ -4,4 +4,4 @@ data/
 # ignore all logs
 *.log
 
-project_problem.txt
+project.txt
