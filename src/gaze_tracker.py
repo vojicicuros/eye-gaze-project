@@ -1,12 +1,9 @@
 import os
-import sys
 import threading
 import time
-
 import joblib
 from matplotlib import pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-
 from .camera_feed import Camera
 from .landmark_detector import Detector
 from sklearn.linear_model import LinearRegression
@@ -28,7 +25,7 @@ collapse_time = 0.05
 num_of_dots = 3  # 3x3
 
 
-def prepare_data(self, file_path):
+def prepare_data(file_path):
     """
     Prepare the data from the json. Extract iris landmarks and screen positions.
     """
@@ -79,7 +76,7 @@ class GazeTracker:
         self.validation = Validation(self)
 
         # self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
-        self.iris_data_thread = threading.Thread(target=self.iris_data_feed)
+        self.iris_data_thread = threading.Thread(target=self.iris_data_to_file)
         self.exit_event = threading.Event()
 
     def predict(self, iris_landmarks):
@@ -93,7 +90,7 @@ class GazeTracker:
         """
         Validate the model by calculating the error metrics on the calibration data.
         """
-        features, actual_screen_positions = prepare_data(json_data)
+        features, actual_screen_positions = prepare_data(file_path='iris_data.json')
 
         # Predict screen positions for the calibration data
         predicted_screen_positions = self.model.predict(features)
@@ -146,7 +143,7 @@ class GazeTracker:
 
     def train_linear_model(self):
         file_path = os.path.join("data", "iris_data.json")
-        X, y = self.prepare_data(file_path=file_path)
+        X, y = prepare_data(file_path=file_path)
 
         # Train model
         print("Training linear model.")
@@ -198,14 +195,14 @@ class GazeTracker:
 
         return iris_data_list
 
-    def iris_data_feed(self):
+    def iris_data_to_file(self):
 
         iris_data = self.get_iris_data()
 
-        self.save_data_to_file(data=iris_data)
+        self.save_data_to_file(data=iris_data, filename="iris_data.json")
 
-    def save_data_to_file(self, data):
-        file_path = os.path.join("data", "iris_data.json")
+    def save_data_to_file(self, data, filename):
+        file_path = os.path.join("data", filename)
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
                 existing_data = json.load(f)
@@ -215,7 +212,7 @@ class GazeTracker:
         existing_data.extend(data)
         with open(file_path, 'w') as f:
             json.dump(existing_data, f, indent=4)
-            print("Saved data into .json file.")
+            print(f"Saved data into f{filename} file.")
 
     def env_cleanup(self):
         file_path = os.path.join("data", "iris_data.json")

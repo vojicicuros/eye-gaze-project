@@ -26,8 +26,8 @@ if __name__ == '__main__':
     gaze_tracker.iris_data_thread.join()
 
     # Run validation (optional, blocking)
-    gaze_tracker.validation.start_validation_thread.start()
-    gaze_tracker.validation.start_validation_thread.join()
+    # gaze_tracker.validation.start_validation_thread.start()
+    # gaze_tracker.validation.start_validation_thread.join()
 
     # Wait for camera and detector threads to finish
     for thread in processing_threads:
