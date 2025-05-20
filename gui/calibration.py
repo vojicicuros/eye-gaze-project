@@ -25,7 +25,7 @@ class Calibration:
         self.gaze_tracker = gaze_tracker
         self.iris_data_flag = False
 
-        self.start_calibration_thread = threading.Thread(target=self.start_calibration)
+        self.calibration_gui_thread = threading.Thread(target=self.start_calibration)
         self.exit_event = threading.Event()
 
     def interpolate(self, start, end, step, total_steps):

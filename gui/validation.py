@@ -21,9 +21,10 @@ collapse_time = 0.05
 class Validation:
     def __init__(self, gaze_tracker: GazeTracker):
         self.gaze_tracker = gaze_tracker
+        self.iris_data_flag = False
         self.positions = gaze_tracker.screen_positions
 
-        self.start_validation_thread = threading.Thread(target=self.start_validation)
+        self.validation_gui_thread = threading.Thread(target=self.start_validation)
         self.exit_event = threading.Event()
 
     def interpolate(self, start, end, step, total_steps):
@@ -34,6 +35,7 @@ class Validation:
         pygame.draw.line(surface, color, (x, y - size), (x, y + size), 5)
 
     def shrink_circle_at(self, screen, x, y):
+        self.iris_data_flag = True
         for step in range(collapse_steps + 1):
             shrinking_radius = int(self.interpolate(radius, 0, step, collapse_steps))
             screen.fill(black)
@@ -47,6 +49,7 @@ class Validation:
             self.draw_crosshair(screen, x, y)
             pygame.display.flip()
             time.sleep(collapse_time)
+        self.iris_data_flag = False
 
     def stop_validation(self):
         self.exit_event.set()
