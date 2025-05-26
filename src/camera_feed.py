@@ -15,6 +15,7 @@ class Camera:
             print("Camera setup successful.")
 
         success, self.feed = self.cap.read()
+        self.raw_feed = None
         self.running = True
         self.face_box = None
         self.eyes_landmarks = None
@@ -22,17 +23,17 @@ class Camera:
         self.get_feed_thread = threading.Thread(target=self.get_feed, daemon=True)
         self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)
 
-    def draw_face_rectangle(self, img):
-        h, w, _ = img.shape  # Get frame dimensions
-        # Convert relative bbox coordinates to pixel values
-        x, y, w_box, h_box = (
-            int(self.face_box.xmin * w),
-            int(self.face_box.ymin * h),
-            int(self.face_box.width * w),
-            int(self.face_box.height * h)
-        )
-        # Draw a blue rectangle around the face
-        cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
+    # def draw_face_rectangle(self, img):
+    #     h, w, _ = img.shape  # Get frame dimensions
+    #     # Convert relative bbox coordinates to pixel values
+    #     x, y, w_box, h_box = (
+    #         int(self.face_box.xmin * w),
+    #         int(self.face_box.ymin * h),
+    #         int(self.face_box.width * w),
+    #         int(self.face_box.height * h)
+    #     )
+    #     # Draw a blue rectangle around the face
+    #     cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
 
     def draw_eyes_landmarks(self, img):
 
@@ -69,24 +70,36 @@ class Camera:
         while self.running:
             if self.feed is not None:
                 if self.face_box is not None:
-                    self.feed = self.image_preprocessing(self.feed)
+                    #self.feed = self.image_preprocessing()
+                    # ideja je da se slika cropuje samo na face_box i da se nad tom slikom radi
+                    # landmark detekcija (pod uslovom da korisnik ne pomera glavu)
+                    pass
                 self.show_in_window(win_name='Camera Feed', img=self.feed)
 
-    def image_preprocessing(self, frame):
-        if self.face_box is None:
-            return frame  # Fallback to original frame if face not detected
+    def image_preprocessing(self):
 
+        frame = self.raw_feed.copy()
         h, w, _ = frame.shape
-        print(h, w)
+        x, y, w_box, h_box = (
+            int(self.face_box.xmin * w),
+            int(self.face_box.ymin * h),
+            int(self.face_box.width * w),
+            int(self.face_box.height * h)
+        )
+        # print(f'frame size: {h}x{w}')
+        # print(x, y, w_box, h_box)
+        # frame = frame[y:y+h_box, x:x+w_box]
 
         return frame
 
     def get_feed(self):
         while self.running:
             # Capture frame-by-frame
-            success, self.feed = self.cap.read()
+            success, self.raw_feed = self.cap.read()
             if not success:
                 continue
+
+            self.feed = self.raw_feed.copy()
 
     def stop(self):
         self.running = False
