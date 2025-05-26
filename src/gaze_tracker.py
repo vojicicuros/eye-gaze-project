@@ -2,8 +2,6 @@ import os
 import threading
 import time
 import joblib
-from matplotlib import pyplot as plt
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 from .camera_feed import Camera
 from .landmark_detector import Detector
 from sklearn.linear_model import LinearRegression
@@ -25,51 +23,23 @@ collapse_time = 0.05
 num_of_dots = 3  # 3x3
 
 
-def prepare_data(file_path):
-    """
-    Prepare the data from the json. Extract iris landmarks and screen positions.
-    """
-    print(f"Extracting data from {file_path} file.")
-    with open(file_path, 'r') as file:
-        json_data = json.load(file)
-
-    features = []
-    screen_positions = []
-
-    for entry in json_data:
-        # Extract iris landmarks
-        l_iris_center = entry["l_iris_center"]
-        r_iris_center = entry["r_iris_center"]
-
-        # Combine iris boundary points and centers (10 points total)
-        feature_vector = l_iris_center + r_iris_center
-
-        # Extract screen position
-        screen_position = entry["screen_position"]
-
-        # Append to feature list
-        features.append(feature_vector)
-        screen_positions.append(screen_position)
-
-    # Convert to numpy arrays for model training
-    features = np.array(features)
-    screen_positions = np.array(screen_positions)
-
-    print("Data extracted.")
-    return features, screen_positions
-
-
 class GazeTracker:
     def __init__(self):
         self.env_cleanup()
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
 
+        self.screen_height = None
+        self.screen_width = None
+
         # Initialize the model
-        self.model = self.import_model()
+        #self.model = self.import_model()
 
         from gui.calibration import Calibration
         from gui.validation import Validation
+
+        self.calibration_data = self.read_from_file(filename="iris_data_fix.json")
+        self.gaze = None
 
         self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
@@ -80,115 +50,119 @@ class GazeTracker:
         self.validation_data_thread = threading.Thread(target=self.validation_iris_data)
         self.exit_event = threading.Event()
 
-    def linear_estimation(self, live_data, calibration_data):
-        """
-        """
+    def read_from_file(self, filename):
+        file_path = os.path.join("data", filename)
+        print(f"Reading from: {file_path}")
 
-        x, y = live_data[0], live_data[1]
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+                print("Successfully loaded data:")
+                return data
 
-        x1 = calibration_data[3]['iris_center'][0]
-        x2 = calibration_data[5]['iris_center'][0]
-        alpha1 = calibration_data[3]['screen_position'][0]
-        alpha2 = calibration_data[5]['screen_position'][0]
+        except Exception as e:
+            print(f"Unexpected error while reading the file: {e}")
+            return None
 
-        y1 = calibration_data[1]['iris_center'][1]
-        y2 = calibration_data[7]['iris_center'][1]
-        beta1 = calibration_data[1]['screen_position'][1]
-        beta2 = calibration_data[7]['screen_position'][1]
+    def normalize(self, point, frame_width, frame_height):
+        return [point[0] / frame_width, point[1] / frame_height]
+
+    def linear_estimation(self, live_data):
+        print(f"Live data: {live_data}")
+
+        for key in [1, 3, 5, 7]:
+            print(f"[{key}] l_iris_center: {self.calibration_data[key]['l_iris_center']}")
+            print(f"[{key}] r_iris_center: {self.calibration_data[key]['r_iris_center']}")
+            print(f"[{key}] screen_position: {self.calibration_data[key]['screen_position']}")
+
+        x, y = live_data
+
+        x1 = np.average([self.calibration_data[3]['l_iris_center'],
+                         self.calibration_data[3]['r_iris_center']], axis=0)[0]
+        x2 = np.average([self.calibration_data[5]['l_iris_center'],
+                         self.calibration_data[5]['r_iris_center']], axis=0)[0]
+
+        alpha1 = self.calibration_data[3]['screen_position'][0]
+        alpha2 = self.calibration_data[5]['screen_position'][0]
+
+        y1 = np.average([self.calibration_data[1]['l_iris_center'],
+                         self.calibration_data[1]['r_iris_center']], axis=0)[1]
+        y2 = np.average([self.calibration_data[7]['l_iris_center'],
+                         self.calibration_data[7]['r_iris_center']], axis=0)[1]
+
+        beta1 = self.calibration_data[1]['screen_position'][1]
+        beta2 = self.calibration_data[7]['screen_position'][1]
 
         alpha = alpha1 + (x - x1) / (x2 - x1) * (alpha2 - alpha1)
         beta = beta1 + (y - y1) / (y2 - y1) * (beta2 - beta1)
 
         return np.array([alpha, beta])
 
-
-    def import_model(self):
-        model_path = os.path.join("data", "linear_model.joblib")
-        if os.path.exists(model_path):
-            print(f"Loading pretrained model from {model_path}.")
-            return joblib.load(model_path)
-        else:
-            print("No pretrained model found. Using a new one.")
-            return LinearRegression()
-
-    def train_linear_model(self):
-        file_path = os.path.join("data", "iris_data.json")
-        X, y = prepare_data(file_path=file_path)
-
-        # Train model
-        print("Training linear model.")
-        self.model.fit(X, y)
-
-        # Save model
-        model_path = os.path.join("data", "linear_model.joblib")
-        joblib.dump(self.model, model_path)
-        print(f"Linear model trained and saved to {model_path}.")
-
-    def get_iris_data(self, exit_event, data_flag, calibration_flag):
+    def calibration_iris_data(self):
 
         iris_data_dict = {
             "l_iris_center": [],
             "r_iris_center": [],
+            "avg_center": [],
             "screen_position": []
         }
         l_iris_data = []
         r_iris_data = []
         was_collecting = False  # Tracks the previous state of the flag
 
-        while not exit_event.is_set():
-            if self.validation.iris_data_flag:
+        while not self.calibration.exit_event.is_set():
+            if self.calibration.iris_data_flag:
                 was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
                 r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
 
-                avg_center = np.average([l_iris_cent, r_iris_cent], axis=0)
-                print(avg_center)
+                l_iris_data.append(l_iris_cent)
+                r_iris_data.append(r_iris_cent)
 
-                if l_iris_cent is not None:
-                    l_iris_data.append(l_iris_cent)
-                if r_iris_cent is not None:
-                    r_iris_data.append(r_iris_cent)
             else:
                 # Only append once when data_flag switches from True to False
                 if was_collecting:
-                    if l_iris_data and r_iris_data:
-                        iris_data_dict["l_iris_center"].append(np.median(l_iris_data, axis=0).astype(int).tolist())
-                        iris_data_dict["r_iris_center"].append(np.median(r_iris_data, axis=0).astype(int).tolist())
+                    l_median = np.median(l_iris_data, axis=0).astype(int).tolist()
+                    r_median = np.median(r_iris_data, axis=0).astype(int).tolist()
+                    iris_data_dict["l_iris_center"].append(l_median)
+                    iris_data_dict["r_iris_center"].append(r_median)
+                    iris_data_dict["avg_center"].append(np.average([l_median, r_median], axis=0).tolist())
+
                     l_iris_data = []
                     r_iris_data = []
                     was_collecting = False  # Reset flag to prevent repeated appending
             time.sleep(0.01)
 
-        # If calibration is running, set regular screen position; If validation is running, predict screen position
-        if calibration_flag:
-            iris_data_dict["screen_position"] = self.screen_positions[1:]
-        else:
-            input_data = iris_data_dict["l_iris_center"] + iris_data_dict["r_iris_center"]
-            predicted_data = self.predict(input_data)
-            iris_data_dict["screen_position"] = predicted_data
+        iris_data_dict["screen_position"] = self.screen_positions[1:]
 
         iris_data_list = []
-        for l_iris, r_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
-                                              iris_data_dict["r_iris_center"],
-                                              self.screen_positions[1:]):
-            iris_data_list.append({"l_iris_center": l_iris, "r_iris_center": r_iris, "screen_position": screen_pos})
+        for l_iris, r_iris, avg, screen_pos in zip(iris_data_dict["l_iris_center"],
+                                                   iris_data_dict["r_iris_center"],
+                                                   iris_data_dict["avg_center"],
+                                                   self.screen_positions[1:]):
+            iris_data_list.append({"l_iris_center": l_iris,
+                                   "r_iris_center": r_iris,
+                                   "avg_center": avg,
+                                   "screen_position": screen_pos})
 
         return iris_data_list
 
     def validation_iris_data(self):
 
-        iris_data = self.get_iris_data(exit_event=self.validation.exit_event,
-                                       data_flag=self.validation.iris_data_flag,
-                                       calibration_flag=False)
+        while not self.validation.exit_event.is_set():
+            if self.validation.iris_data_flag:
+                l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
+                r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
+                avg_iris = np.average([l_iris_cent, r_iris_cent], axis=0)
+                #print(avg_iris)
+                self.gaze = self.linear_estimation(avg_iris)
+                print(self.gaze)
 
-        self.save_data_to_file(data=iris_data, filename="iris_data_val.json")
+            time.sleep(0.01)
 
     def calibration_iris_data_to_file(self):
 
-        iris_data = self.get_iris_data(exit_event=self.calibration.exit_event,
-                                       data_flag=self.calibration.iris_data_flag,
-                                       calibration_flag=True)
-
+        iris_data = self.calibration_iris_data()
         self.save_data_to_file(data=iris_data, filename="iris_data.json")
 
     def save_data_to_file(self, data, filename):
@@ -227,6 +201,14 @@ class GazeTracker:
         ]
         return positions
 
+    def import_model(self):
+        model_path = os.path.join("data", "linear_model.joblib")
+        if os.path.exists(model_path):
+            print(f"Loading pretrained model from {model_path}.")
+            return joblib.load(model_path)
+        else:
+            print("No pretrained model found. Using a new one.")
+            return LinearRegression()
 
 
 

@@ -57,23 +57,28 @@ class Camera:
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
 
-        if self.face_box:
-            self.draw_face_rectangle(img)
-            self.draw_eyes_landmarks(img)
+        #self.draw_face_rectangle(img)
+        self.draw_eyes_landmarks(img)
 
         cv2.imshow(win_name, img)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.stop()
 
-    def display_feed(self, face_box=None):
+    def display_feed(self):
         while self.running:
             if self.feed is not None:
-                # self.feed = self.image_preprocessing(self.feed)
+                if self.face_box is not None:
+                    self.feed = self.image_preprocessing(self.feed)
                 self.show_in_window(win_name='Camera Feed', img=self.feed)
 
     def image_preprocessing(self, frame):
-        #frame = cv2.flip(frame, 1)
+        if self.face_box is None:
+            return frame  # Fallback to original frame if face not detected
+
+        h, w, _ = frame.shape
+        print(h, w)
+
         return frame
 
     def get_feed(self):

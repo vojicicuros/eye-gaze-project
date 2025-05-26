@@ -10,7 +10,7 @@ if __name__ == '__main__':
     processing_threads = [
         gaze_tracker.cam.get_feed_thread,
         gaze_tracker.cam.display_feed_thread,
-        gaze_tracker.detector.detect_face_thread,
+        # gaze_tracker.detector.detect_face_thread,
         gaze_tracker.detector.face_mesh_thread,
     ]
 
@@ -26,10 +26,10 @@ if __name__ == '__main__':
     # gaze_tracker.calibration_data_thread.join()
 
     # Run validation (optional, blocking)
-    gaze_tracker.validation.validation_gui_thread.start()
-    gaze_tracker.validation_data_thread.start()
-    gaze_tracker.validation.validation_gui_thread.join()
-    gaze_tracker.validation_data_thread.join()
+    # gaze_tracker.validation.validation_gui_thread.start()
+    # gaze_tracker.validation_data_thread.start()
+    # gaze_tracker.validation.validation_gui_thread.join()
+    # gaze_tracker.validation_data_thread.join()
 
     # Wait for camera and detector threads to finish
     for thread in processing_threads:
