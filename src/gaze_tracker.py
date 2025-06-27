@@ -38,7 +38,7 @@ class GazeTracker:
         from gui.calibration import Calibration
         from gui.validation import Validation
 
-        self.calibration_data = self.read_from_file(filename="iris_data_fix.json")
+        self.calibration_data = None
         self.gaze = None
 
         self.screen_positions = self.calculate_positions(num_of_dots)
@@ -68,33 +68,35 @@ class GazeTracker:
         return [point[0] / frame_width, point[1] / frame_height]
 
     def linear_estimation(self, live_data):
-        print(f"Live data: {live_data}")
-
-        for key in [1, 3, 5, 7]:
-            print(f"[{key}] l_iris_center: {self.calibration_data[key]['l_iris_center']}")
-            print(f"[{key}] r_iris_center: {self.calibration_data[key]['r_iris_center']}")
-            print(f"[{key}] screen_position: {self.calibration_data[key]['screen_position']}")
-
         x, y = live_data
 
-        x1 = np.average([self.calibration_data[3]['l_iris_center'],
-                         self.calibration_data[3]['r_iris_center']], axis=0)[0]
-        x2 = np.average([self.calibration_data[5]['l_iris_center'],
-                         self.calibration_data[5]['r_iris_center']], axis=0)[0]
+        # Horizontal calibration: left-center (index 3) and right-center (index 5)
+        x1 = self.calibration_data[3]['avg_center'][0]
+        x2 = self.calibration_data[5]['avg_center'][0]
+        alpha1 = self.calibration_data[3]['screen_position'][0]  # Should be ~50
+        alpha2 = self.calibration_data[5]['screen_position'][0]  # Should be ~1870
 
-        alpha1 = self.calibration_data[3]['screen_position'][0]
-        alpha2 = self.calibration_data[5]['screen_position'][0]
+        if x1 > x2:
+            x1, x2 = x2, x1
 
-        y1 = np.average([self.calibration_data[1]['l_iris_center'],
-                         self.calibration_data[1]['r_iris_center']], axis=0)[1]
-        y2 = np.average([self.calibration_data[7]['l_iris_center'],
-                         self.calibration_data[7]['r_iris_center']], axis=0)[1]
+        # Vertical calibration: top-center (index 1) and bottom-center (index 7)
+        y1 = self.calibration_data[1]['avg_center'][1]
+        y2 = self.calibration_data[7]['avg_center'][1]
+        beta1 = self.calibration_data[1]['screen_position'][1]  # Should be ~50
+        beta2 = self.calibration_data[7]['screen_position'][1]  # Should be ~1030
 
-        beta1 = self.calibration_data[1]['screen_position'][1]
-        beta2 = self.calibration_data[7]['screen_position'][1]
+        # Clamp the x and y to be within the calibration bounds
+        x = np.clip(x, x1, x2)
+        y = np.clip(y, y1, y2)
 
+        # Linear interpolation
         alpha = alpha1 + (x - x1) / (x2 - x1) * (alpha2 - alpha1)
         beta = beta1 + (y - y1) / (y2 - y1) * (beta2 - beta1)
+
+        # Optional: clamp again to ensure you're within screen size
+        alpha = np.clip(alpha, padding, self.screen_width - padding)
+        alpha = np.abs(self.screen_width - padding - alpha)
+        beta = np.clip(beta, padding, self.screen_height - padding)
 
         return np.array([alpha, beta])
 
@@ -149,14 +151,14 @@ class GazeTracker:
 
     def validation_iris_data(self):
 
+        self.calibration_data = self.read_from_file(filename="iris_data_fix.json")
+
         while not self.validation.exit_event.is_set():
             if self.validation.iris_data_flag:
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
                 r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
                 avg_iris = np.average([l_iris_cent, r_iris_cent], axis=0)
-                #print(avg_iris)
                 self.gaze = self.linear_estimation(avg_iris)
-                print(self.gaze)
 
             time.sleep(0.01)
 
@@ -176,7 +178,7 @@ class GazeTracker:
         existing_data.extend(data)
         with open(file_path, 'w') as f:
             json.dump(existing_data, f, indent=4)
-            print(f"Saved data into f{filename} file.")
+            print(f"Saved data into {filename} file.")
 
     def env_cleanup(self):
         file_path = os.path.join("data", "iris_data.json")

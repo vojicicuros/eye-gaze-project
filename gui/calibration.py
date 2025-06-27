@@ -122,9 +122,6 @@ class Calibration:
 
         self.stop_calibration()
 
-        # Model training
-        self.gaze_tracker.train_linear_model()
-
     def stop_calibration(self):
         self.exit_event.set()
         pygame.quit()

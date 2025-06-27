@@ -69,28 +69,12 @@ class Camera:
     def display_feed(self):
         while self.running:
             if self.feed is not None:
-                if self.face_box is not None:
-                    #self.feed = self.image_preprocessing()
-                    # ideja je da se slika cropuje samo na face_box i da se nad tom slikom radi
-                    # landmark detekcija (pod uslovom da korisnik ne pomera glavu)
-                    pass
+                # self.image_preprocessing()
                 self.show_in_window(win_name='Camera Feed', img=self.feed)
 
     def image_preprocessing(self):
 
-        frame = self.raw_feed.copy()
-        h, w, _ = frame.shape
-        x, y, w_box, h_box = (
-            int(self.face_box.xmin * w),
-            int(self.face_box.ymin * h),
-            int(self.face_box.width * w),
-            int(self.face_box.height * h)
-        )
-        # print(f'frame size: {h}x{w}')
-        # print(x, y, w_box, h_box)
-        # frame = frame[y:y+h_box, x:x+w_box]
-
-        return frame
+        self.feed = cv2.flip(self.feed, 1)
 
     def get_feed(self):
         while self.running:
