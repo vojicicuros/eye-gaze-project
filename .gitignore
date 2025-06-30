@@ -5,3 +5,5 @@ data/
 *.log
 
 project.txt
+todo.txt
+playground.py

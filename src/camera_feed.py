@@ -23,18 +23,6 @@ class Camera:
         self.get_feed_thread = threading.Thread(target=self.get_feed, daemon=True)
         self.display_feed_thread = threading.Thread(target=self.display_feed, daemon=True)
 
-    # def draw_face_rectangle(self, img):
-    #     h, w, _ = img.shape  # Get frame dimensions
-    #     # Convert relative bbox coordinates to pixel values
-    #     x, y, w_box, h_box = (
-    #         int(self.face_box.xmin * w),
-    #         int(self.face_box.ymin * h),
-    #         int(self.face_box.width * w),
-    #         int(self.face_box.height * h)
-    #     )
-    #     # Draw a blue rectangle around the face
-    #     cv2.rectangle(img, (x, y), (x + w_box, y + h_box), (0, 255, 0), 1)
-
     def draw_eyes_landmarks(self, img):
 
         # Mesh related

@@ -1,26 +1,12 @@
 import os
 import threading
 import time
-import joblib
 from .camera_feed import Camera
 from .landmark_detector import Detector
-from sklearn.linear_model import LinearRegression
 import numpy as np
 import json
 from screeninfo import get_monitors
-
-
-# constants
-black = (0, 0, 0)
-red = (255, 0, 0)
-white = (255, 255, 255)
-radius = 20
-padding = 50
-transition_steps = 15
-transition_time = 0.02
-collapse_steps = 20
-collapse_time = 0.05
-num_of_dots = 3  # 3x3
+from consts import *
 
 
 class GazeTracker:
@@ -29,11 +15,8 @@ class GazeTracker:
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
 
-        self.screen_height = None
-        self.screen_width = None
-
-        # Initialize the model
-        #self.model = self.import_model()
+        self.screen_height = screen_height
+        self.screen_width = screen_width
 
         from gui.calibration import Calibration
         from gui.validation import Validation
@@ -190,9 +173,6 @@ class GazeTracker:
         print("Environment is fine.")
 
     def calculate_positions(self, n=num_of_dots):
-        monitor = get_monitors()[0]
-        screen_width = monitor.width
-        screen_height = monitor.height
 
         row_step = (screen_height - 2 * padding) // (n-1)
         col_step = (screen_width - 2 * padding) // (n-1)
@@ -202,15 +182,6 @@ class GazeTracker:
             for j in range(n) for i in range(n)
         ]
         return positions
-
-    def import_model(self):
-        model_path = os.path.join("data", "linear_model.joblib")
-        if os.path.exists(model_path):
-            print(f"Loading pretrained model from {model_path}.")
-            return joblib.load(model_path)
-        else:
-            print("No pretrained model found. Using a new one.")
-            return LinearRegression()
 
 
 

@@ -5,19 +5,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.gaze_tracker import GazeTracker
-
-
-# constants
-black = (0, 0, 0)
-red = (255, 0, 0)
-white = (255, 255, 255)
-radius = 20
-padding = 50
-transition_steps = 15
-transition_time = 0.02
-collapse_steps = 20
-collapse_time = 0.05
-num_of_dots = 3  # 3x3
+from consts import *
 
 
 class Calibration:
@@ -55,11 +43,9 @@ class Calibration:
     def start_calibration(self):
         # Calibration GUI
         pygame.init()
-        info = pygame.display.Info()
-        screen_width, screen_height = info.current_w, info.current_h
         self.gaze_tracker.screen_width = screen_width
         self.gaze_tracker.screen_height = screen_height
-        screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+        screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Calibration Display")
 
         positions = self.gaze_tracker.screen_positions

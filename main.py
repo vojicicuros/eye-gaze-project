@@ -1,5 +1,3 @@
-import sys
-import os
 from src.gaze_tracker import GazeTracker
 
 

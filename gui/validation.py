@@ -2,18 +2,7 @@ import pygame
 import threading
 import time
 from src.gaze_tracker import GazeTracker
-
-# constants
-black = (0, 0, 0)
-red = (255, 0, 0)
-white = (255, 255, 255)
-relaxing_green = (133, 153, 134)
-radius = 20
-padding = 50
-transition_steps = 15
-transition_time = 0.02
-collapse_steps = 20
-collapse_time = 0.05
+from consts import *
 
 
 class Validation:
@@ -62,11 +51,9 @@ class Validation:
     def start_validation(self):
         # Validation GUI
         pygame.init()
-        info = pygame.display.Info()
-        screen_width, screen_height = info.current_w, info.current_h
-        self.gaze_tracker.screen_width = screen_width
-        self.gaze_tracker.screen_height = screen_height
-        self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+        screen_width = self.gaze_tracker.screen_width
+        screen_height = self.gaze_tracker.screen_height
+        self.screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Validation Display")
 
         current_x, current_y = self.positions[0]
@@ -116,9 +103,10 @@ class Validation:
 
             current_x, current_y = x, y
 
-            # Use the shrink_circle_at method here
             if idx != 0:
                 self.shrink_circle_at(self.screen, x, y)
+                print(f"Screen position: {x, y}")
+                print(f"Gaze: {self.gaze_tracker.gaze}")
 
             time.sleep(0.1)
         self.stop_validation()
@@ -127,16 +115,10 @@ class Validation:
         clock = pygame.time.Clock()
         while not self.exit_event.is_set():
             if self.screen and self.gaze_tracker.gaze is not None:
-                # NOTE: Do not fill screen here! That would erase everything drawn by validation thread.
                 x, y = map(int, self.gaze_tracker.gaze)
-                print(x, y)
-                pygame.draw.circle(self.screen, red, (x, y), 10)
+                pygame.draw.circle(self.screen, red, (x, y), 30)
 
-                pygame.display.update()  # Only update what we drew
+                pygame.display.update()
             clock.tick(30)  # Limit to 30 FPS
 
 
-# Debugging purposes
-# if __name__ == "__main__":
-#     val = Validation()
-#     val.start_validation()

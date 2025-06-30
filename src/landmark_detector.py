@@ -26,7 +26,6 @@ class Detector:
         # FACE DETECTION MODEL
         self.mp_face_detection = mp.solutions.face_detection
         self.face_detector = self.mp_face_detection.FaceDetection(min_detection_confidence=0.8)
-        self.face_box_location = None
 
         # FACE MESH DETECTION MODEL
         self.mp_face_mesh = mp.solutions.face_mesh
@@ -50,11 +49,6 @@ class Detector:
                                "r_iris_center": []
                                }
 
-        # Smoothers for each facial feature
-        self.face_box_smoother ={
-            "face_box": Smoother(alpha=0.4)
-        }
-
         self.eye_smoothers = {
             "left_eye": Smoother(alpha=0.8),
             "right_eye": Smoother(alpha=0.8),
@@ -62,42 +56,16 @@ class Detector:
             "right_iris": Smoother(alpha=0.8)
         }
 
-        # threads
-        # self.detect_face_thread = threading.Thread(target=self.detect_face, daemon=True)
-        self.face_mesh_thread = threading.Thread(target=self.detect_face_mesh, daemon=True)
-
-    # def detect_face(self):
-    #     """
-    #     Continuously detects face in the camera feed.
-    #     #TO DO Can be useful to pause whole process until face is back in frame.
-    #     """
-    #     while True:
-    #         if self.camera.running:
-    #             # Convert BGR to RGB for MediaPipe processing
-    #             feed_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
-    #             # Process the image and detect faces
-    #             results = self.face_detector.process(feed_rgb)
-    #
-    #             if results.detections:
-    #                 # print("Face detected!")
-    #                 for detection in results.detections:
-    #                     # Get bounding box information
-    #                     self.face_box_location = detection.location_data.relative_bounding_box
-    #
-    #                     self.camera.face_box = self.face_box_location
-    #             else:
-    #                 # print("No face detected")
-    #                 pass
-    #         else:
-    #             self.stop()
+        self.face_mesh_thread = threading.Thread(target=self.detect_mesh, daemon=True)
 
     def iris_center(self, iris_landmarks):
+        # Racunanje centra duzice pomocu preseka dve duzi
+
         x1, y1 = iris_landmarks[0]
         x2, y2 = iris_landmarks[1]
         x3, y3 = iris_landmarks[2]
         x4, y4 = iris_landmarks[3]
 
-        # Koeficijenti pravaca
         k1 = (y3 - y1) / (x3 - x1) if x3 != x1 else float('inf')
         k2 = (y4 - y2) / (x4 - x2) if x4 != x2 else float('inf')
 
@@ -123,6 +91,8 @@ class Detector:
             results = self.face_detector.process(feed_rgb)
 
             if results.detections:
+                # print("Face detected")
+
                 # Take the first detected face only
                 detection = results.detections[0]
                 return detection.location_data.relative_bounding_box
@@ -131,7 +101,7 @@ class Detector:
                 # print("No face detected")
                 pass
 
-    def detect_face_mesh(self):
+    def detect_mesh(self):
 
         while self.camera.face_box is None:
             self.camera.face_box = self.detect_face_box()
@@ -165,12 +135,11 @@ class Detector:
                             if new_landmarks[key]:
                                 self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
 
-                #with self.camera.landmarks_lock:
                 self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
                 self.mesh_landmarks["r_iris_center"] = self.iris_center(new_landmarks["right_iris"])
                 self.camera.eyes_landmarks = self.mesh_landmarks.copy()
 
-                # Reset mesh_landmarks
+                # Reset temp mesh_landmarks
                 self.mesh_landmarks = {
                     "left_eye": [], "right_eye": [],
                     "left_iris": [], "right_iris": [],
@@ -181,8 +150,6 @@ class Detector:
                 self.stop()
 
     def stop(self):
-        # if self.detect_face_thread.is_alive():
-        #     self.detect_face_thread.join()
         if self.face_mesh_thread.is_alive():
             self.face_mesh_thread.join()
         print("Detector successfully closed.")
