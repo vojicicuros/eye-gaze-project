@@ -13,6 +13,8 @@ class Calibration:
         self.gaze_tracker = gaze_tracker
         self.iris_data_flag = False
 
+        self.background_color = black
+
         self.calibration_gui_thread = threading.Thread(target=self.start_calibration)
         self.exit_event = threading.Event()
 
@@ -56,7 +58,7 @@ class Calibration:
         font = pygame.font.Font(None, 100)
         button_text = font.render("Calibration", True, white)
         button_rect = button_text.get_rect(center=(screen_width // 2, screen_height // 2))
-        screen.fill(black)
+        screen.fill(self.background_color)
         screen.blit(button_text, button_rect)
         pygame.display.flip()
 

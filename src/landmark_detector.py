@@ -42,21 +42,23 @@ class Detector:
         self.LEFT_IRIS_LANDMARKS = [474, 475, 477, 476]
         self.RIGHT_IRIS_LANDMARKS = [469, 470, 471, 472]
         self.mesh_landmarks = {"left_eye": [],
-                               "right_eye": [],
                                "left_iris": [],
-                               "right_iris": [],
                                "l_iris_center": [],
+                               "right_eye": [],
+                               "right_iris": [],
                                "r_iris_center": []
                                }
 
         self.eye_smoothers = {
             "left_eye": Smoother(alpha=0.8),
-            "right_eye": Smoother(alpha=0.8),
             "left_iris": Smoother(alpha=0.8),
+            "right_eye": Smoother(alpha=0.8),
             "right_iris": Smoother(alpha=0.8)
         }
 
         self.face_mesh_thread = threading.Thread(target=self.detect_mesh, daemon=True)
+
+        print('Landmark detector setup successful.')
 
     def iris_center(self, iris_landmarks):
         # Racunanje centra duzice pomocu preseka dve duzi

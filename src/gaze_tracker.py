@@ -18,6 +18,8 @@ class GazeTracker:
         self.screen_height = screen_height
         self.screen_width = screen_width
 
+        print(f'Window size {self.screen_width}x{self.screen_height}')
+
         from gui.calibration import Calibration
         from gui.validation import Validation
 
