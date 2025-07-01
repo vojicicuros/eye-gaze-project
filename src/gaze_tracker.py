@@ -42,7 +42,7 @@ class GazeTracker:
         try:
             with open(file_path, "r") as f:
                 data = json.load(f)
-                print("Successfully loaded data:")
+                print("Successfully loaded data")
                 return data
 
         except Exception as e:
@@ -54,21 +54,21 @@ class GazeTracker:
 
     def linear_estimation(self, live_data):
         x, y = live_data
-
+        print(live_data)
         # Horizontal calibration: left-center (index 3) and right-center (index 5)
-        x1 = self.calibration_data[3]['avg_center'][0]
-        x2 = self.calibration_data[5]['avg_center'][0]
-        alpha1 = self.calibration_data[3]['screen_position'][0]  # Should be ~50
-        alpha2 = self.calibration_data[5]['screen_position'][0]  # Should be ~1870
+        x1 = self.calibration_data[3]['l_iris_center'][0]
+        x2 = self.calibration_data[5]['l_iris_center'][0]
+        alpha1 = self.calibration_data[3]['screen_position'][0]
+        alpha2 = self.calibration_data[5]['screen_position'][0]
 
         if x1 > x2:
             x1, x2 = x2, x1
 
         # Vertical calibration: top-center (index 1) and bottom-center (index 7)
-        y1 = self.calibration_data[1]['avg_center'][1]
-        y2 = self.calibration_data[7]['avg_center'][1]
-        beta1 = self.calibration_data[1]['screen_position'][1]  # Should be ~50
-        beta2 = self.calibration_data[7]['screen_position'][1]  # Should be ~1030
+        y1 = self.calibration_data[1]['l_iris_center'][1]
+        y2 = self.calibration_data[7]['l_iris_center'][1]
+        beta1 = self.calibration_data[1]['screen_position'][1]
+        beta2 = self.calibration_data[7]['screen_position'][1]
 
         # Clamp the x and y to be within the calibration bounds
         x = np.clip(x, x1, x2)
@@ -89,8 +89,8 @@ class GazeTracker:
 
         iris_data_dict = {
             "l_iris_center": [],
-            "r_iris_center": [],
-            "avg_center": [],
+            # "r_iris_center": [],
+            # "avg_center": [],
             "screen_position": []
         }
         l_iris_data = []
@@ -101,19 +101,19 @@ class GazeTracker:
             if self.calibration.iris_data_flag:
                 was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
-                r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
+                # r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
 
                 l_iris_data.append(l_iris_cent)
-                r_iris_data.append(r_iris_cent)
+                # r_iris_data.append(r_iris_cent)
 
             else:
                 # Only append once when data_flag switches from True to False
                 if was_collecting:
                     l_median = np.median(l_iris_data, axis=0).astype(int).tolist()
-                    r_median = np.median(r_iris_data, axis=0).astype(int).tolist()
+                    # r_median = np.median(r_iris_data, axis=0).astype(int).tolist()
                     iris_data_dict["l_iris_center"].append(l_median)
-                    iris_data_dict["r_iris_center"].append(r_median)
-                    iris_data_dict["avg_center"].append(np.average([l_median, r_median], axis=0).tolist())
+                    # iris_data_dict["r_iris_center"].append(r_median)
+                    # iris_data_dict["avg_center"].append(np.average([l_median, r_median], axis=0).tolist())
 
                     l_iris_data = []
                     r_iris_data = []
@@ -123,27 +123,27 @@ class GazeTracker:
         iris_data_dict["screen_position"] = self.screen_positions[1:]
 
         iris_data_list = []
-        for l_iris, r_iris, avg, screen_pos in zip(iris_data_dict["l_iris_center"],
-                                                   iris_data_dict["r_iris_center"],
-                                                   iris_data_dict["avg_center"],
-                                                   self.screen_positions[1:]):
+        for l_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
+                                      # iris_data_dict["r_iris_center"],
+                                      # iris_data_dict["avg_center"],
+                                      self.screen_positions[1:]):
             iris_data_list.append({"l_iris_center": l_iris,
-                                   "r_iris_center": r_iris,
-                                   "avg_center": avg,
+                                   # "r_iris_center": r_iris,
+                                   # "avg_center": avg,
                                    "screen_position": screen_pos})
 
         return iris_data_list
 
     def validation_iris_data(self):
 
-        self.calibration_data = self.read_from_file(filename="iris_data_fix.json")
+        self.calibration_data = self.read_from_file(filename="iris_data.json")
 
         while not self.validation.exit_event.is_set():
             if self.validation.iris_data_flag:
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
-                r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
-                avg_iris = np.average([l_iris_cent, r_iris_cent], axis=0)
-                self.gaze = self.linear_estimation(avg_iris)
+                # r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
+                # avg_iris = np.average([l_iris_cent, r_iris_cent], axis=0)
+                self.gaze = self.linear_estimation(l_iris_cent)
 
             time.sleep(0.01)
 

@@ -37,23 +37,16 @@ class Detector:
 
         self.LEFT_EYE_LANDMARKS = [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374,
                                    380, 381, 382, 362]
-        self.RIGHT_EYE_LANDMARKS = [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145,
-                                    144, 163, 7]
         self.LEFT_IRIS_LANDMARKS = [474, 475, 477, 476]
-        self.RIGHT_IRIS_LANDMARKS = [469, 470, 471, 472]
+
         self.mesh_landmarks = {"left_eye": [],
                                "left_iris": [],
                                "l_iris_center": [],
-                               "right_eye": [],
-                               "right_iris": [],
-                               "r_iris_center": []
                                }
 
         self.eye_smoothers = {
             "left_eye": Smoother(alpha=0.8),
             "left_iris": Smoother(alpha=0.8),
-            "right_eye": Smoother(alpha=0.8),
-            "right_iris": Smoother(alpha=0.8)
         }
 
         self.face_mesh_thread = threading.Thread(target=self.detect_mesh, daemon=True)
@@ -84,29 +77,29 @@ class Detector:
         y_p = int(y_p)
         return x_p, y_p
 
-    def detect_face_box(self):
-
-        if self.camera.running:
-            # Convert BGR to RGB for MediaPipe processing
-            feed_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
-            # Process the image and detect face
-            results = self.face_detector.process(feed_rgb)
-
-            if results.detections:
-                # print("Face detected")
-
-                # Take the first detected face only
-                detection = results.detections[0]
-                return detection.location_data.relative_bounding_box
-
-            else:
-                # print("No face detected")
-                pass
+    # def detect_face_box(self):
+    #
+    #     if self.camera.running:
+    #         # Convert BGR to RGB for MediaPipe processing
+    #         feed_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
+    #         # Process the image and detect face
+    #         results = self.face_detector.process(feed_rgb)
+    #
+    #         if results.detections:
+    #             # print("Face detected")
+    #
+    #             # Take the first detected face only
+    #             detection = results.detections[0]
+    #             return detection.location_data.relative_bounding_box
+    #
+    #         else:
+    #             # print("No face detected")
+    #             pass
 
     def detect_mesh(self):
 
-        while self.camera.face_box is None:
-            self.camera.face_box = self.detect_face_box()
+        # while self.camera.face_box is None:
+        #     self.camera.face_box = self.detect_face_box()
 
         while True:
             if self.camera.running:
@@ -115,7 +108,7 @@ class Detector:
 
                 if results.multi_face_landmarks:
                     for face_lms in results.multi_face_landmarks:
-                        new_landmarks = { "left_eye": [], "right_eye": [], "left_iris": [], "right_iris": [] }
+                        new_landmarks = {"left_eye": [], "left_iris": []}
 
                         for i, lm in enumerate(face_lms.landmark):
                             h, w, _ = self.camera.feed.shape
@@ -123,30 +116,21 @@ class Detector:
 
                             if i in self.LEFT_EYE_LANDMARKS:
                                 new_landmarks["left_eye"].append((x, y))
-                            if i in self.RIGHT_EYE_LANDMARKS:
-                                new_landmarks["right_eye"].append((x, y))
                             if i in self.LEFT_IRIS_LANDMARKS:
                                 new_landmarks["left_iris"].append((x, y))
-                            if i in self.RIGHT_IRIS_LANDMARKS:
-                                new_landmarks["right_iris"].append((x, y))
 
                         # Apply EMA smoothing to iris
                         for key in self.mesh_landmarks.keys():
-                            if key == "l_iris_center" or key == "r_iris_center":
+                            if key == "l_iris_center":
                                 continue
                             if new_landmarks[key]:
                                 self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
 
                 self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
-                self.mesh_landmarks["r_iris_center"] = self.iris_center(new_landmarks["right_iris"])
                 self.camera.eyes_landmarks = self.mesh_landmarks.copy()
 
                 # Reset temp mesh_landmarks
-                self.mesh_landmarks = {
-                    "left_eye": [], "right_eye": [],
-                    "left_iris": [], "right_iris": [],
-                    "l_iris_center": [], "r_iris_center": []
-                }
+                self.mesh_landmarks = {"left_eye": [], "left_iris": [], "l_iris_center": []}
 
             else:
                 self.stop()

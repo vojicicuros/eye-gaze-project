@@ -26,9 +26,9 @@ class Camera:
     def draw_eyes_landmarks(self, img):
 
         # Mesh related
-        keys_eyes = ["left_eye", "right_eye"]
-        keys_iris = ["left_iris", "right_iris"]
-        keys_iris_center = ["l_iris_center", "r_iris_center"]
+        keys_eyes = ["left_eye"]
+        keys_iris = ["left_iris"]
+        keys_iris_center = ["l_iris_center"]
         with self.landmarks_lock:
             if self.eyes_landmarks:
                 for key in keys_eyes:
@@ -46,7 +46,6 @@ class Camera:
         cv2.namedWindow(win_name)  # Create a named window
         cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
 
-        #self.draw_face_rectangle(img)
         self.draw_eyes_landmarks(img)
 
         cv2.imshow(win_name, img)
