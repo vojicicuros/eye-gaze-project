@@ -104,8 +104,6 @@ class Validation:
 
             if idx != 0:
                 self.shrink_circle_at(self.screen, x, y)
-                print(f"Screen position: {x, y}")
-                print(f"Gaze: {self.gaze_tracker.gaze}")
 
             time.sleep(0.1)
         self.stop_validation()

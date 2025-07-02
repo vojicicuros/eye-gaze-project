@@ -10,7 +10,7 @@ relaxing_green = (110, 149, 108)
 
 # Dimensions
 radius = 20
-padding = 50
+padding = 10
 transition_steps = 15
 transition_time = 0.001
 collapse_steps = 20
