@@ -89,7 +89,7 @@ class Calibration:
                 intermediate_y = int(self.interpolate(current_y, y, step, transition_steps))
 
                 self.screen.fill(black)
-                pygame.draw.circle(self.screen, black, (intermediate_x, intermediate_y), radius + 3)
+                pygame.draw.circle(self.screen, white, (intermediate_x, intermediate_y), radius + 3)
                 pygame.draw.circle(self.screen, red, (intermediate_x, intermediate_y), radius)
                 self.draw_crosshair(self.screen, intermediate_x, intermediate_y)
 
