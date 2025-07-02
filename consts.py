@@ -1,5 +1,7 @@
 # constants.py
 
+filename = "iris_data.json"
+
 # Colors
 black = (0, 0, 0)
 red = (255, 0, 0)

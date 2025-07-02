@@ -22,6 +22,16 @@ class GazeTracker:
 
         from gui.calibration import Calibration
         from gui.validation import Validation
+        from gui.gaze_part import Gazing
+
+        self.x1 = 0
+        self.x2 = 0
+        self.alpha1 = 0
+        self.alpha2 = 0
+        self.y1 = 0
+        self.y2 = 0
+        self.beta1 = 0
+        self.beta2 = 0
 
         self.calibration_data = None
         self.gaze = None
@@ -29,9 +39,10 @@ class GazeTracker:
         self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
         self.validation = Validation(self)
+        self.gazing_part = Gazing(self)
 
         # self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
-        self.calibration_data_thread = threading.Thread(target=self.calibration_iris_data_to_file)
+        self.calibration_data_thread = threading.Thread(target=self.calibration_iris_data_wrap)
         self.validation_data_thread = threading.Thread(target=self.validation_iris_data)
         self.exit_event = threading.Event()
 
@@ -49,34 +60,18 @@ class GazeTracker:
             print(f"Unexpected error while reading the file: {e}")
             return None
 
-    def normalize(self, point, frame_width, frame_height):
-        return [point[0] / frame_width, point[1] / frame_height]
 
     def linear_estimation(self, live_data):
+
         x, y = live_data
-        print(live_data)
-        # Horizontal calibration: left-center (index 3) and right-center (index 5)
-        x1 = self.calibration_data[3]['l_iris_center'][0]
-        x2 = self.calibration_data[5]['l_iris_center'][0]
-        alpha1 = self.calibration_data[3]['screen_position'][0]
-        alpha2 = self.calibration_data[5]['screen_position'][0]
-
-        if x1 > x2:
-            x1, x2 = x2, x1
-
-        # Vertical calibration: top-center (index 1) and bottom-center (index 7)
-        y1 = self.calibration_data[1]['l_iris_center'][1]
-        y2 = self.calibration_data[7]['l_iris_center'][1]
-        beta1 = self.calibration_data[1]['screen_position'][1]
-        beta2 = self.calibration_data[7]['screen_position'][1]
 
         # Clamp the x and y to be within the calibration bounds
-        x = np.clip(x, x1, x2)
-        y = np.clip(y, y1, y2)
+        x = np.clip(x, self.x1, self.x2)
+        y = np.clip(y, self.y1, self.y2)
 
         # Linear interpolation
-        alpha = alpha1 + (x - x1) / (x2 - x1) * (alpha2 - alpha1)
-        beta = beta1 + (y - y1) / (y2 - y1) * (beta2 - beta1)
+        alpha = self.alpha1 + (x - self.x1) / (self.x2 - self.x1) * (self.alpha2 - self.alpha1)
+        beta = self.beta1 + (y - self.y1) / (self.y2 - self.y1) * (self.beta2 - self.beta1)
 
         # Optional: clamp again to ensure you're within screen size
         alpha = np.clip(alpha, padding, self.screen_width - padding)
@@ -84,6 +79,31 @@ class GazeTracker:
         beta = np.clip(beta, padding, self.screen_height - padding)
 
         return np.array([alpha, beta])
+
+    def calculate_consts(self):
+
+        # Horizontal calibration
+        self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
+                                 self.calibration_data[3]['l_iris_center'][0],
+                                 self.calibration_data[6]['l_iris_center'][0]]))
+        self.x2 = round(np.mean([self.calibration_data[2]['l_iris_center'][0],
+                                 self.calibration_data[5]['l_iris_center'][0],
+                                 self.calibration_data[8]['l_iris_center'][0]]))
+        self.alpha1 = self.calibration_data[3]['screen_position'][0]
+        self.alpha2 = self.calibration_data[5]['screen_position'][0]
+
+        if self.x1 > self.x2:
+            self.x1, self.x2 = self.x2, self.x1
+
+        # Vertical calibration
+        self.y1 = round(np.mean([self.calibration_data[0]['l_iris_center'][1],
+                                 self.calibration_data[1]['l_iris_center'][1],
+                                 self.calibration_data[2]['l_iris_center'][1]]))
+        self.y2 = round(np.mean([self.calibration_data[6]['l_iris_center'][1],
+                                 self.calibration_data[7]['l_iris_center'][1],
+                                 self.calibration_data[8]['l_iris_center'][1]]))
+        self.beta1 = self.calibration_data[1]['screen_position'][1]
+        self.beta2 = self.calibration_data[7]['screen_position'][1]
 
     def calibration_iris_data(self):
 
@@ -136,7 +156,8 @@ class GazeTracker:
 
     def validation_iris_data(self):
 
-        self.calibration_data = self.read_from_file(filename="iris_data.json")
+        self.calibration_data = self.read_from_file(filename=filename)
+        self.calculate_consts()
 
         while not self.validation.exit_event.is_set():
             if self.validation.iris_data_flag:
@@ -147,12 +168,13 @@ class GazeTracker:
 
             time.sleep(0.01)
 
-    def calibration_iris_data_to_file(self):
+    def calibration_iris_data_wrap(self):
 
         iris_data = self.calibration_iris_data()
-        self.save_data_to_file(data=iris_data, filename="iris_data.json")
+        self.save_data_to_file(data=iris_data)
 
-    def save_data_to_file(self, data, filename):
+    def save_data_to_file(self, data):
+
         file_path = os.path.join("data", filename)
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
@@ -166,6 +188,7 @@ class GazeTracker:
             print(f"Saved data into {filename} file.")
 
     def env_cleanup(self):
+
         file_path = os.path.join("data", "iris_data.json")
         if os.path.isfile(file_path):
             os.remove(file_path)

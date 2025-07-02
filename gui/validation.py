@@ -15,7 +15,7 @@ class Validation:
         self.positions = gaze_tracker.screen_positions
 
         self.validation_gui_thread = threading.Thread(target=self.start_validation)
-        self.draw_gaze_thread = threading.Thread(target=self.draw_gaze)
+        self.draw_gaze_gui_thread = threading.Thread(target=self.draw_gaze)
 
         self.exit_event = threading.Event()
 
@@ -49,10 +49,9 @@ class Validation:
         print('Exiting Validation')
 
     def start_validation(self):
+
         # Validation GUI
         pygame.init()
-        screen_width = self.gaze_tracker.screen_width
-        screen_height = self.gaze_tracker.screen_height
         self.screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Validation Display")
 
@@ -116,7 +115,7 @@ class Validation:
         while not self.exit_event.is_set():
             if self.screen and self.gaze_tracker.gaze is not None:
                 x, y = map(int, self.gaze_tracker.gaze)
-                pygame.draw.circle(self.screen, red, (x, y), 30)
+                pygame.draw.circle(self.screen, red, (x, y), 10)
 
                 pygame.display.update()
             clock.tick(30)  # Limit to 30 FPS

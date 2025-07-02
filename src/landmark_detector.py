@@ -45,8 +45,8 @@ class Detector:
                                }
 
         self.eye_smoothers = {
-            "left_eye": Smoother(alpha=0.8),
-            "left_iris": Smoother(alpha=0.8),
+            "left_eye": Smoother(alpha=0.7),
+            "left_iris": Smoother(alpha=0.7),
         }
 
         self.face_mesh_thread = threading.Thread(target=self.detect_mesh, daemon=True)
@@ -107,24 +107,24 @@ class Detector:
                 results = self.face_mesh.process(img_rgb)
 
                 if results.multi_face_landmarks:
-                    for face_lms in results.multi_face_landmarks:
-                        new_landmarks = {"left_eye": [], "left_iris": []}
+                    face_lms = results.multi_face_landmarks[0]  # Only the first (and only) face
+                    new_landmarks = {"left_eye": [], "left_iris": []}
 
-                        for i, lm in enumerate(face_lms.landmark):
-                            h, w, _ = self.camera.feed.shape
-                            x, y = int(lm.x * w), int(lm.y * h)
+                    h, w, _ = self.camera.feed.shape
+                    for i, lm in enumerate(face_lms.landmark):
+                        x, y = int(lm.x * w), int(lm.y * h)
 
-                            if i in self.LEFT_EYE_LANDMARKS:
-                                new_landmarks["left_eye"].append((x, y))
-                            if i in self.LEFT_IRIS_LANDMARKS:
-                                new_landmarks["left_iris"].append((x, y))
+                        if i in self.LEFT_EYE_LANDMARKS:
+                            new_landmarks["left_eye"].append((x, y))
+                        if i in self.LEFT_IRIS_LANDMARKS:
+                            new_landmarks["left_iris"].append((x, y))
 
-                        # Apply EMA smoothing to iris
-                        for key in self.mesh_landmarks.keys():
-                            if key == "l_iris_center":
-                                continue
-                            if new_landmarks[key]:
-                                self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
+                    # Apply smoothing
+                    for key in self.mesh_landmarks.keys():
+                        if key == "l_iris_center":
+                            continue
+                        if new_landmarks[key]:
+                            self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
 
                 self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
                 self.camera.eyes_landmarks = self.mesh_landmarks.copy()
