@@ -66,10 +66,10 @@ class Gazing:
                     smoothed_pos[1] = alpha * y + (1 - alpha) * smoothed_pos[1]
 
                 # Fade previous trails
-                trail_surface.fill((0, 0, 0, 30), special_flags=pygame.BLEND_RGBA_SUB)
+                trail_surface.fill((0, 0, 0, 35), special_flags=pygame.BLEND_RGBA_SUB)
 
                 # Draw halo (larger, transparent)
-                halo_color = (*red, 80)  # RGBA: semi-transparent red
+                halo_color = (*red, 60)  # RGBA: semi-transparent red
                 pygame.draw.circle(trail_surface, halo_color, (int(smoothed_pos[0]), int(smoothed_pos[1])), 25)
 
                 # Draw main gaze dot (fully opaque red)

@@ -81,25 +81,6 @@ class Detector:
         y_p = int(y_p)
         return x_p, y_p
 
-    # def detect_face_box(self):
-    #
-    #     if self.camera.running:
-    #         # Convert BGR to RGB for MediaPipe processing
-    #         feed_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
-    #         # Process the image and detect face
-    #         results = self.face_detector.process(feed_rgb)
-    #
-    #         if results.detections:
-    #             # print("Face detected")
-    #
-    #             # Take the first detected face only
-    #             detection = results.detections[0]
-    #             return detection.location_data.relative_bounding_box
-    #
-    #         else:
-    #             # print("No face detected")
-    #             pass
-
     def detect_mesh(self):
 
         # while self.camera.face_box is None:
