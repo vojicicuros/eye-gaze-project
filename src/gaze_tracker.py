@@ -5,7 +5,6 @@ from .camera_feed import Camera
 from .landmark_detector import Detector
 import numpy as np
 import json
-from screeninfo import get_monitors
 from consts import *
 
 
@@ -18,20 +17,12 @@ class GazeTracker:
         self.screen_height = screen_height
         self.screen_width = screen_width
 
-        print(f'Window size {self.screen_width}x{self.screen_height}')
-
         from gui.calibration import Calibration
         from gui.validation import Validation
         from gui.gaze_part import Gazing
 
-        self.x1 = 0
-        self.x2 = 0
-        self.alpha1 = 0
-        self.alpha2 = 0
-        self.y1 = 0
-        self.y2 = 0
-        self.beta1 = 0
-        self.beta2 = 0
+        self.x1 = self.x2 = self.alpha1 = self.alpha2 = 0
+        self.y1 = self.y2 = self.beta1 = self.beta2 = 0
 
         self.calibration_data = None
         self.gaze = None
@@ -46,7 +37,7 @@ class GazeTracker:
         self.validation_data_thread = threading.Thread(target=self.validation_iris_data)
         self.exit_event = threading.Event()
 
-    def read_from_file(self, filename):
+    def read_from_file(self):
         file_path = os.path.join("data", filename)
         print(f"Reading from: {file_path}")
 
@@ -59,7 +50,6 @@ class GazeTracker:
         except Exception as e:
             print(f"Unexpected error while reading the file: {e}")
             return None
-
 
     def linear_estimation(self, live_data):
 
@@ -156,7 +146,7 @@ class GazeTracker:
 
     def validation_iris_data(self):
 
-        self.calibration_data = self.read_from_file(filename=filename)
+        self.calibration_data = self.read_from_file()
         self.calculate_consts()
 
         while not self.validation.exit_event.is_set():

@@ -16,6 +16,6 @@ transition_time = 0.001
 collapse_steps = 20
 collapse_time = 0.05
 num_of_dots = 3  # 3x3
-screen_width = 1000
-screen_height = 1000
+screen_width = 1920
+screen_height = 1080
 

@@ -23,6 +23,10 @@ class Detector:
         # camera
         self.camera = camera
 
+        self.eye_box_initialized = False
+        self.eye_crop_width = 100
+        self.eye_crop_height = 50
+
         # FACE DETECTION MODEL
         self.mp_face_detection = mp.solutions.face_detection
         self.face_detector = self.mp_face_detection.FaceDetection(min_detection_confidence=0.8)
