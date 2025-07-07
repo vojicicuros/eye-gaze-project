@@ -6,11 +6,14 @@ from .camera_feed import Camera
 from .landmark_detector import Detector
 import numpy as np
 import json
+from sklearn.linear_model import LinearRegression
 from consts import *
 
 
 class GazeTracker:
     def __init__(self):
+        self.poly_reg_y = None
+        self.poly_reg_x = None
         self.env_cleanup()
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
@@ -74,7 +77,61 @@ class GazeTracker:
 
         return np.array([alpha, beta])
 
-    def calculate_consts(self):
+    def train_polynomial_regression(self):
+        # 1. Extract features and labels
+        X = []
+        Yx = []
+        Yy = []
+
+        for entry in self.calibration_data:
+            x, y = entry["l_iris_center"]
+            sx, sy = entry["screen_position"]
+
+            # Polynomial features: 1, x, y, x^2, y^2, xy
+            X.append([1, x, y, x ** 2, y ** 2, x * y])
+            Yx.append(sx)
+            Yy.append(sy)
+
+        X = np.array(X)
+        Yx = np.array(Yx)
+        Yy = np.array(Yy)
+
+        # print(X, Yx, Yy)
+
+        # 2. Train two regressors
+        self.poly_reg_x = LinearRegression().fit(X, Yx)
+        self.poly_reg_y = LinearRegression().fit(X, Yy)
+
+        print("Polynomial regression trained.")
+
+    def polynomial_mapping(self, iris_center):
+        """
+        Predict the gaze point (screen coordinates) from iris center using polynomial regression.
+        Args:
+            iris_center: tuple or list of (x, y) representing iris center in camera coordinates.
+        Returns:
+            (screen_x, screen_y): predicted screen coordinates as floats.
+        """
+        if iris_center is None:
+            return None
+
+        x, y = iris_center
+        features = np.array([[1, x, y, x ** 2, y ** 2, x * y]])
+
+        try:
+            alpha = self.poly_reg_x.predict(features)[0]
+            beta = self.poly_reg_y.predict(features)[0]
+        except Exception as e:
+            print("Polynomial mapping error:", e)
+            return None
+
+        # Clamp values to stay within screen bounds with padding
+        alpha = np.clip(alpha, padding, self.screen_width - padding)
+        beta = np.clip(beta, padding, self.screen_height - padding)
+
+        return np.array([alpha, beta])
+
+    def calculate_consts_linear(self):
 
         # Horizontal calibration
         self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
@@ -140,7 +197,8 @@ class GazeTracker:
     def validation_iris_data(self):
 
         self.calibration_data = self.read_from_file()
-        self.calculate_consts()
+        self.calculate_consts_linear()
+        self.train_polynomial_regression()
 
         predictions = []
         was_collecting = False  # Tracks the previous state of the flag
@@ -150,7 +208,10 @@ class GazeTracker:
             if self.validation.iris_data_flag:
                 was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
-                self.gaze = self.linear_mapping(l_iris_cent)
+
+                # self.gaze = self.linear_mapping(l_iris_cent)
+                self.gaze = self.polynomial_mapping(l_iris_cent)
+
                 predictions.append(self.gaze)
 
             else:

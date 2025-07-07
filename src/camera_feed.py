@@ -69,17 +69,14 @@ class Camera:
     def display_feed(self):
         while self.running:
             if self.feed is not None:
-                self.image_preprocessing()
+                # self.image_preprocessing()
                 self.show_in_window(win_name='Camera Feed', img=self.feed)
 
     def image_preprocessing(self):
 
         with self.landmarks_lock:
-            iris_center = None
-            eye_landmarks = None
-            if self.eyes_landmarks:
-                iris_center = self.eyes_landmarks.get("l_iris_center")
-                eye_landmarks = self.eyes_landmarks.get("left_eye")
+            iris_center = self.eyes_landmarks.get("l_iris_center") if self.eyes_landmarks else None
+            eye_landmarks = self.eyes_landmarks.get("left_eye") if self.eyes_landmarks else None
 
         # Calculate crop box size only once, from eye landmarks
         if not self.eye_box_initialized and eye_landmarks is not None:
@@ -88,10 +85,9 @@ class Camera:
             self.eye_crop_width = max(xs) - min(xs) + 10
             self.eye_crop_height = max(ys) - min(ys) + 10
             self.eye_box_initialized = True
-            # print(f"Initialized crop size: {self.eye_crop_width} x {self.eye_crop_height}")
 
         # Crop around iris center with fixed size
-        if iris_center:
+        if iris_center and self.eye_box_initialized:
             x_center, y_center = iris_center
 
             x1 = max(0, x_center - self.eye_crop_width // 2)
@@ -100,7 +96,11 @@ class Camera:
             y2 = min(self.feed.shape[0], y_center + self.eye_crop_height // 2)
 
             cv2.rectangle(self.feed, (x1, y1), (x2, y2), (0, 255, 255), 1)
-            #self.feed = self.feed[y1:y2, x1:x2]
+
+            # if y2 > y1 and x2 > x1:
+            #     self.feed = self.feed[y1:y2, x1:x2]  # Crop feed
+            # else:
+            #     print(f"Invalid crop area: x1={x1}, x2={x2}, y1={y1}, y2={y2}")
     def get_feed(self):
         while self.running:
             # Capture frame-by-frame
