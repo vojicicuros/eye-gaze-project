@@ -29,6 +29,7 @@ class GazeTracker:
         self.gaze = None
 
         self.all_metrics = []
+        self.metrics_summary = None
 
         self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
