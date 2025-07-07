@@ -51,9 +51,7 @@ class Gazing:
         # Smoothing factor (lower = smoother)
 
         clock = pygame.time.Clock()
-
         smoothed_pos = None
-
         trail_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
 
         while not self.exit_event.is_set():

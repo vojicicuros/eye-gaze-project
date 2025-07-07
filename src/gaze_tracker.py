@@ -96,7 +96,7 @@ class GazeTracker:
         Yx = np.array(Yx)
         Yy = np.array(Yy)
 
-        # print(X, Yx, Yy)
+        print(X, Yx, Yy)
 
         # 2. Train two regressors
         self.poly_reg_x = LinearRegression().fit(X, Yx)
@@ -132,31 +132,39 @@ class GazeTracker:
         return np.array([alpha, beta])
 
     def calculate_consts_linear(self):
+        # Extract all iris and screen positions
+        iris_points = [entry['l_iris_center'] for entry in self.calibration_data]
+        screen_points = [entry['screen_position'] for entry in self.calibration_data]
 
-        # Horizontal calibration
-        self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
-                                 self.calibration_data[3]['l_iris_center'][0],
-                                 self.calibration_data[6]['l_iris_center'][0]]))
+        # Convert to numpy for easier slicing
+        iris_points = np.array(iris_points)
+        screen_points = np.array(screen_points)
 
-        self.x2 = round(np.mean([self.calibration_data[2]['l_iris_center'][0],
-                                 self.calibration_data[5]['l_iris_center'][0],
-                                 self.calibration_data[8]['l_iris_center'][0]]))
+        # Sort horizontally (left to right) by screen X coordinate
+        horizontal_sorted = sorted(zip(iris_points, screen_points), key=lambda p: p[1][0])
+        left_group = horizontal_sorted[:len(horizontal_sorted) // 3]
+        right_group = horizontal_sorted[-len(horizontal_sorted) // 3:]
 
-        self.alpha1 = self.calibration_data[3]['screen_position'][0]
-        self.alpha2 = self.calibration_data[5]['screen_position'][0]
+        self.x1 = int(np.mean([pt[0][0] for pt in left_group]))
+        self.x2 = int(np.mean([pt[0][0] for pt in right_group]))
+
+        self.alpha1 = np.mean([pt[1][0] for pt in left_group])
+        self.alpha2 = np.mean([pt[1][0] for pt in right_group])
 
         if self.x1 > self.x2:
             self.x1, self.x2 = self.x2, self.x1
+            self.alpha1, self.alpha2 = self.alpha2, self.alpha1
 
-        # Vertical calibration
-        self.y1 = round(np.mean([self.calibration_data[0]['l_iris_center'][1],
-                                 self.calibration_data[1]['l_iris_center'][1],
-                                 self.calibration_data[2]['l_iris_center'][1]]))
-        self.y2 = round(np.mean([self.calibration_data[6]['l_iris_center'][1],
-                                 self.calibration_data[7]['l_iris_center'][1],
-                                 self.calibration_data[8]['l_iris_center'][1]]))
-        self.beta1 = self.calibration_data[1]['screen_position'][1]
-        self.beta2 = self.calibration_data[7]['screen_position'][1]
+        # Sort vertically (top to bottom) by screen Y coordinate
+        vertical_sorted = sorted(zip(iris_points, screen_points), key=lambda p: p[1][1])
+        top_group = vertical_sorted[:len(vertical_sorted) // 3]
+        bottom_group = vertical_sorted[-len(vertical_sorted) // 3:]
+
+        self.y1 = int(np.mean([pt[0][1] for pt in top_group]))
+        self.y2 = int(np.mean([pt[0][1] for pt in bottom_group]))
+
+        self.beta1 = np.mean([pt[1][1] for pt in top_group])
+        self.beta2 = np.mean([pt[1][1] for pt in bottom_group])
 
     def calibration_iris_data(self):
 
