@@ -53,12 +53,15 @@ class Camera:
                     cv2.circle(img, (self.eyes_landmarks[key][0], self.eyes_landmarks[key][1]), 1, (255, 255, 255), 1)
 
     def show_in_window(self, win_name, img):
-        cv2.namedWindow(win_name)  # Create a named window
-        cv2.moveWindow(win_name, x=0, y=0)  # Move it to (x,y)
+        cv2.namedWindow(win_name)
+        cv2.moveWindow(win_name, x=0, y=0)
 
         self.draw_eyes_landmarks(img)
 
-        cv2.imshow(win_name, img)
+        # Resize image for display only
+        display_img = cv2.resize(img, (640, 360))  # Adjust size as needed
+
+        cv2.imshow(win_name, display_img)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.stop()

@@ -2,7 +2,8 @@ import cv2
 import mediapipe as mp
 import threading
 import numpy as np
-#from camera_feed import Camera
+# from camera_feed import Camera
+
 
 class Smoother:
     def __init__(self, alpha=0.1):
@@ -10,11 +11,12 @@ class Smoother:
         self.smoothed = None
 
     def update(self, new_value):
+
         if self.smoothed is None:
             self.smoothed = np.array(new_value, dtype=np.float32)
         else:
             self.smoothed = self.alpha * np.array(new_value, dtype=np.float32) + (1 - self.alpha) * self.smoothed
-        #print(self.smoothed)
+
         return self.smoothed.astype(int)
 
 

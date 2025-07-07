@@ -9,6 +9,7 @@ class Validation:
     def __init__(self, gaze_tracker: GazeTracker):
 
         self.screen = None
+        self.background_color = black
 
         self.gaze_tracker = gaze_tracker
         self.iris_data_flag = False
@@ -108,14 +109,36 @@ class Validation:
             time.sleep(0.1)
         self.stop_validation()
 
-    def draw_gaze(self):
+    def draw_gaze(self, alpha=0.2):
+        # Smoothing factor (lower = smoother)
+
         clock = pygame.time.Clock()
+
+        smoothed_pos = None
+
+        trail_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
         while not self.exit_event.is_set():
             if self.screen and self.gaze_tracker.gaze is not None:
-                x, y = map(int, self.gaze_tracker.gaze)
-                pygame.draw.circle(self.screen, red, (x, y), 10)
+                # Smooth the gaze position
+                x, y = self.gaze_tracker.gaze
+                if smoothed_pos is None:
+                    smoothed_pos = [x, y]
+                else:
+                    smoothed_pos[0] = alpha * x + (1 - alpha) * smoothed_pos[0]
+                    smoothed_pos[1] = alpha * y + (1 - alpha) * smoothed_pos[1]
 
+                # Fade previous trails
+                trail_surface.fill((0, 0, 0, 35), special_flags=pygame.BLEND_RGBA_SUB)
+
+                # Draw main gaze dot (fully opaque red)
+                dot_color = (*teal, 255)
+                pygame.draw.circle(trail_surface, dot_color, (int(smoothed_pos[0]), int(smoothed_pos[1])), 10)
+
+                # Blit to main screen
+                # self.screen.fill(self.background_color)
+                self.screen.blit(trail_surface, (0, 0))
                 pygame.display.update()
-            clock.tick(30)  # Limit to 30 FPS
 
+            clock.tick(30)  # 30 FPS
 

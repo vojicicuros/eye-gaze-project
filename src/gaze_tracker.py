@@ -1,3 +1,4 @@
+import math
 import os
 import threading
 import time
@@ -27,6 +28,8 @@ class GazeTracker:
         self.calibration_data = None
         self.gaze = None
 
+        self.all_metrics = []
+
         self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
         self.validation = Validation(self)
@@ -51,7 +54,7 @@ class GazeTracker:
             print(f"Unexpected error while reading the file: {e}")
             return None
 
-    def linear_estimation(self, live_data):
+    def linear_mapping(self, live_data):
 
         x, y = live_data
 
@@ -76,9 +79,11 @@ class GazeTracker:
         self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
                                  self.calibration_data[3]['l_iris_center'][0],
                                  self.calibration_data[6]['l_iris_center'][0]]))
+
         self.x2 = round(np.mean([self.calibration_data[2]['l_iris_center'][0],
                                  self.calibration_data[5]['l_iris_center'][0],
                                  self.calibration_data[8]['l_iris_center'][0]]))
+
         self.alpha1 = self.calibration_data[3]['screen_position'][0]
         self.alpha2 = self.calibration_data[5]['screen_position'][0]
 
@@ -99,34 +104,25 @@ class GazeTracker:
 
         iris_data_dict = {
             "l_iris_center": [],
-            # "r_iris_center": [],
-            # "avg_center": [],
             "screen_position": []
         }
         l_iris_data = []
-        r_iris_data = []
         was_collecting = False  # Tracks the previous state of the flag
 
         while not self.calibration.exit_event.is_set():
             if self.calibration.iris_data_flag:
                 was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
-                # r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
 
                 l_iris_data.append(l_iris_cent)
-                # r_iris_data.append(r_iris_cent)
 
             else:
                 # Only append once when data_flag switches from True to False
                 if was_collecting:
                     l_median = np.median(l_iris_data, axis=0).astype(int).tolist()
-                    # r_median = np.median(r_iris_data, axis=0).astype(int).tolist()
                     iris_data_dict["l_iris_center"].append(l_median)
-                    # iris_data_dict["r_iris_center"].append(r_median)
-                    # iris_data_dict["avg_center"].append(np.average([l_median, r_median], axis=0).tolist())
 
                     l_iris_data = []
-                    r_iris_data = []
                     was_collecting = False  # Reset flag to prevent repeated appending
             time.sleep(0.01)
 
@@ -134,12 +130,8 @@ class GazeTracker:
 
         iris_data_list = []
         for l_iris, screen_pos in zip(iris_data_dict["l_iris_center"],
-                                      # iris_data_dict["r_iris_center"],
-                                      # iris_data_dict["avg_center"],
                                       self.screen_positions[1:]):
             iris_data_list.append({"l_iris_center": l_iris,
-                                   # "r_iris_center": r_iris,
-                                   # "avg_center": avg,
                                    "screen_position": screen_pos})
 
         return iris_data_list
@@ -149,14 +141,94 @@ class GazeTracker:
         self.calibration_data = self.read_from_file()
         self.calculate_consts()
 
+        predictions = []
+        was_collecting = False  # Tracks the previous state of the flag
+        current_position = 1
+
         while not self.validation.exit_event.is_set():
             if self.validation.iris_data_flag:
+                was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
-                # r_iris_cent = self.detector.camera.eyes_landmarks.get("r_iris_center")
-                # avg_iris = np.average([l_iris_cent, r_iris_cent], axis=0)
-                self.gaze = self.linear_estimation(l_iris_cent)
+                self.gaze = self.linear_mapping(l_iris_cent)
+                predictions.append(self.gaze)
+
+            else:
+                if was_collecting:
+                    metrics = self.calculate_metrics_per_target(predictions=predictions,
+                                                                target_point=self.screen_positions[current_position])
+
+                    # print(metrics) ###########################################################
+                    self.all_metrics.append(metrics)
+
+                    current_position = current_position + 1
+                    predictions = []
+                    was_collecting = False  # Reset flag to prevent repeated appending
 
             time.sleep(0.01)
+
+        self.calculate_metrics_summary()
+
+    def calculate_metrics_summary(self):
+
+        if not self.all_metrics:
+            print("No metrics to summarize.")
+            return
+
+        # Get all metric keys (assumes all dicts have the same keys)
+        metric_keys = self.all_metrics[0].keys()
+
+        summary = {}
+
+        for key in metric_keys:
+            values = [m[key] for m in self.all_metrics]
+            summary[key] = {
+                'mean': round(np.mean(values), 3),
+                'min': round(np.min(values), 3),
+                'max': round(np.max(values), 3)
+            }
+
+        # Optional: print results
+        print("\nValidation Summary:")
+        for key, stats in summary.items():
+            print(f"{key}: mean={stats['mean']}, min={stats['min']}, max={stats['max']}")
+
+        # Optionally store or return it
+        self.metrics_summary = summary
+
+    def calculate_metrics_per_target(self, predictions, target_point, screen_dpi=96, distance_cm=60):
+        """
+        predictions: list of (x, y) gaze points (in pixels)
+        target_point: (x, y) position of the shown calibration point (in pixels)
+        screen_dpi: screen resolution in dots per inch (default 96)
+        distance_cm: estimated distance from user's eyes to screen in cm (default 60 cm)
+        """
+
+        predictions = np.array(predictions)
+        target_point = np.array(target_point)
+
+        # --- Pixels ---
+        prediction_mean = np.mean(predictions, axis=0)
+        accuracy_px = np.linalg.norm(prediction_mean - target_point)
+        precision_px = np.std(predictions, axis=0)
+        precision_px = np.linalg.norm(precision_px)
+
+        # --- Centimeters ---
+        px_to_cm = 2.54 / screen_dpi
+        accuracy_cm = accuracy_px * px_to_cm
+        precision_cm = precision_px * px_to_cm
+
+        # --- Visual angle (degrees) ---
+        accuracy_deg = math.degrees(math.atan(accuracy_cm / distance_cm))
+        precision_deg = math.degrees(math.atan(precision_cm / distance_cm))
+
+        return {
+            'accuracy_px': accuracy_px,
+            'precision_px': precision_px,
+            'accuracy_cm': accuracy_cm,
+            'precision_cm': precision_cm,
+            'accuracy_deg': accuracy_deg,
+            'precision_deg': precision_deg
+        }
 
     def calibration_iris_data_wrap(self):
 
@@ -197,6 +269,7 @@ class GazeTracker:
             for j in range(n) for i in range(n)
         ]
         return positions
+
 
 
 
