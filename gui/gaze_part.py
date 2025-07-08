@@ -44,8 +44,9 @@ class Gazing:
         while not self.exit_event.is_set():
             l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
 
-            # self.gaze_tracker.gaze = self.gaze_tracker.linear_mapping(l_iris_cent)
-            self.gaze_tracker.gaze = self.gaze_tracker.polynomial_mapping(l_iris_cent)
+            self.gaze_tracker.gaze = self.gaze_tracker.linear_mapping(l_iris_cent)
+            # self.gaze_tracker.gaze = self.gaze_tracker.polynomial_mapping(l_iris_cent)
+            # self.gaze_tracker.gaze = self.gaze_tracker.svr_mapping(l_iris_cent)
 
     def draw_gaze(self, alpha=0.5):
         # Smoothing factor (lower = smoother)

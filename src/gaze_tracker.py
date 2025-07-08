@@ -8,12 +8,13 @@ import numpy as np
 import json
 from sklearn.linear_model import LinearRegression
 from consts import *
+from sklearn.svm import SVR
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 
 class GazeTracker:
     def __init__(self):
-        self.poly_reg_y = None
-        self.poly_reg_x = None
         self.env_cleanup()
         self.cam = Camera()
         self.detector = Detector(camera=self.cam)
@@ -24,6 +25,11 @@ class GazeTracker:
         from gui.calibration import Calibration
         from gui.validation import Validation
         from gui.gaze_part import Gazing
+
+        self.svr_model_y = None
+        self.svr_model_x = None
+        self.poly_reg_y = None
+        self.poly_reg_x = None
 
         self.x1 = self.x2 = self.alpha1 = self.alpha2 = 0
         self.y1 = self.y2 = self.beta1 = self.beta2 = 0
@@ -104,9 +110,38 @@ class GazeTracker:
 
         print("Polynomial regression trained.")
 
+    def train_svr(self):
+        # Extract features and labels
+        X = []
+        Yx = []
+        Yy = []
+
+        for entry in self.calibration_data:
+            x, y = entry["l_iris_center"]
+            sx, sy = entry["screen_position"]
+
+            # Same feature set used in linear regression (can be adjusted if needed)
+            X.append([x, y])
+            Yx.append(sx)
+            Yy.append(sy)
+
+        X = np.array(X)
+        Yx = np.array(Yx)
+        Yy = np.array(Yy)
+
+        # Create and train SVR with standard scaling
+        self.svr_model_x = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=500, epsilon=0.5))
+        self.svr_model_y = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=500, epsilon=0.5))
+
+        self.svr_model_x.fit(X, Yx)
+        self.svr_model_y.fit(X, Yy)
+
+        print("SVR model trained.")
+
     def polynomial_mapping(self, iris_center):
         """
         Predict the gaze point (screen coordinates) from iris center using polynomial regression.
+
         Args:
             iris_center: tuple or list of (x, y) representing iris center in camera coordinates.
         Returns:
@@ -121,50 +156,73 @@ class GazeTracker:
         try:
             alpha = self.poly_reg_x.predict(features)[0]
             beta = self.poly_reg_y.predict(features)[0]
+            # Clamp values to stay within screen bounds with padding
+            alpha = np.clip(alpha, padding, self.screen_width - padding)
+            beta = np.clip(beta, padding, self.screen_height - padding)
+            return np.array([alpha, beta])
+
         except Exception as e:
             print("Polynomial mapping error:", e)
             return None
 
-        # Clamp values to stay within screen bounds with padding
-        alpha = np.clip(alpha, padding, self.screen_width - padding)
-        beta = np.clip(beta, padding, self.screen_height - padding)
+    def svr_mapping(self, iris_center):
+        """
+            Predict the gaze point (screen coordinates) from the iris center using trained SVR models.
 
-        return np.array([alpha, beta])
+            Args:
+                iris_center (tuple): A tuple (x, y) representing the iris center coordinates in camera space.
+
+            Returns:
+                (screen_x, screen_y): predicted screen coordinates as floats.
+
+            Notes:
+                - Uses two separate SVR models: one for horizontal (X) and one for vertical (Y) predictions.
+                - Output is clamped to the screen boundaries using predefined padding.
+            """
+        if iris_center is None:
+            return None
+
+        x, y = iris_center
+        features = np.array([[x, y]])
+
+        try:
+            alpha = self.svr_model_x.predict(features)[0]
+            beta = self.svr_model_y.predict(features)[0]
+
+            alpha = np.clip(alpha, padding, self.screen_width - padding)
+            beta = np.clip(beta, padding, self.screen_height - padding)
+
+            return np.array([alpha, beta])
+        except Exception as e:
+            print("SVR prediction error:", e)
+            return None
 
     def calculate_consts_linear(self):
-        # Extract all iris and screen positions
-        iris_points = [entry['l_iris_center'] for entry in self.calibration_data]
-        screen_points = [entry['screen_position'] for entry in self.calibration_data]
 
-        # Convert to numpy for easier slicing
-        iris_points = np.array(iris_points)
-        screen_points = np.array(screen_points)
+        # Horizontal calibration
+        self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
+                                 self.calibration_data[3]['l_iris_center'][0],
+                                 self.calibration_data[6]['l_iris_center'][0]]))
 
-        # Sort horizontally (left to right) by screen X coordinate
-        horizontal_sorted = sorted(zip(iris_points, screen_points), key=lambda p: p[1][0])
-        left_group = horizontal_sorted[:len(horizontal_sorted) // 3]
-        right_group = horizontal_sorted[-len(horizontal_sorted) // 3:]
+        self.x2 = round(np.mean([self.calibration_data[2]['l_iris_center'][0],
+                                 self.calibration_data[5]['l_iris_center'][0],
+                                 self.calibration_data[8]['l_iris_center'][0]]))
 
-        self.x1 = int(np.mean([pt[0][0] for pt in left_group]))
-        self.x2 = int(np.mean([pt[0][0] for pt in right_group]))
-
-        self.alpha1 = np.mean([pt[1][0] for pt in left_group])
-        self.alpha2 = np.mean([pt[1][0] for pt in right_group])
+        self.alpha1 = self.calibration_data[3]['screen_position'][0]
+        self.alpha2 = self.calibration_data[5]['screen_position'][0]
 
         if self.x1 > self.x2:
             self.x1, self.x2 = self.x2, self.x1
-            self.alpha1, self.alpha2 = self.alpha2, self.alpha1
 
-        # Sort vertically (top to bottom) by screen Y coordinate
-        vertical_sorted = sorted(zip(iris_points, screen_points), key=lambda p: p[1][1])
-        top_group = vertical_sorted[:len(vertical_sorted) // 3]
-        bottom_group = vertical_sorted[-len(vertical_sorted) // 3:]
-
-        self.y1 = int(np.mean([pt[0][1] for pt in top_group]))
-        self.y2 = int(np.mean([pt[0][1] for pt in bottom_group]))
-
-        self.beta1 = np.mean([pt[1][1] for pt in top_group])
-        self.beta2 = np.mean([pt[1][1] for pt in bottom_group])
+        # Vertical calibration
+        self.y1 = round(np.mean([self.calibration_data[0]['l_iris_center'][1],
+                                 self.calibration_data[1]['l_iris_center'][1],
+                                 self.calibration_data[2]['l_iris_center'][1]]))
+        self.y2 = round(np.mean([self.calibration_data[6]['l_iris_center'][1],
+                                 self.calibration_data[7]['l_iris_center'][1],
+                                 self.calibration_data[8]['l_iris_center'][1]]))
+        self.beta1 = self.calibration_data[1]['screen_position'][1]
+        self.beta2 = self.calibration_data[7]['screen_position'][1]
 
     def calibration_iris_data(self):
 
@@ -207,6 +265,7 @@ class GazeTracker:
         self.calibration_data = self.read_from_file()
         self.calculate_consts_linear()
         self.train_polynomial_regression()
+        self.train_svr()
 
         predictions = []
         was_collecting = False  # Tracks the previous state of the flag
@@ -217,8 +276,9 @@ class GazeTracker:
                 was_collecting = True
                 l_iris_cent = self.detector.camera.eyes_landmarks.get("l_iris_center")
 
-                # self.gaze = self.linear_mapping(l_iris_cent)
-                self.gaze = self.polynomial_mapping(l_iris_cent)
+                self.gaze = self.linear_mapping(l_iris_cent)
+                # self.gaze = self.polynomial_mapping(l_iris_cent)
+                # self.gaze = self.svr_mapping(l_iris_cent)
 
                 predictions.append(self.gaze)
 
