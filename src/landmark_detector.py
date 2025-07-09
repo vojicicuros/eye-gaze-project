@@ -2,6 +2,9 @@ import cv2
 import mediapipe as mp
 import threading
 import numpy as np
+from mediapipe.python.solutions.face_mesh import FaceMesh
+
+
 # from camera_feed import Camera
 
 
@@ -59,7 +62,7 @@ class Detector:
 
         print('Landmark detector setup successful.')
 
-    def iris_center(self, iris_landmarks):
+    def calc_iris_center(self, iris_landmarks):
         # Racunanje centra duzice pomocu preseka dve duzi
 
         x1, y1 = iris_landmarks[0]
@@ -83,6 +86,18 @@ class Detector:
         y_p = int(y_p)
         return x_p, y_p
 
+    def get_eye_corners(self, eye_input):
+        """
+        Returns the most left and most right points from the smoothed left eye landmarks.
+        """
+        # if not eye_input or len(eye_input) < 2:
+        #     return None, None
+        # Sort based on X coordinate
+        sorted_eye = sorted(eye_input, key=lambda p: p[0])
+        left_corner = sorted_eye[0]
+        right_corner = sorted_eye[-1]
+        return left_corner, right_corner
+
     def detect_mesh(self):
 
         # while self.camera.face_box is None:
@@ -92,9 +107,10 @@ class Detector:
             if self.camera.running:
                 img_rgb = cv2.cvtColor(self.camera.feed, cv2.COLOR_BGR2RGB)
                 results = self.face_mesh.process(img_rgb)
+                new_landmarks = {"left_eye": [], "left_iris": []}
 
                 if results.multi_face_landmarks:
-                    face_lms = results.multi_face_landmarks[0]  # Only the first (and only) face
+                    face_lms = results.multi_face_landmarks[0]
                     new_landmarks = {"left_eye": [], "left_iris": []}
 
                     h, w, _ = self.camera.feed.shape
@@ -113,7 +129,7 @@ class Detector:
                         if new_landmarks[key]:
                             self.mesh_landmarks[key] = self.eye_smoothers[key].update(new_landmarks[key])
 
-                self.mesh_landmarks["l_iris_center"] = self.iris_center(new_landmarks["left_iris"])
+                self.mesh_landmarks["l_iris_center"] = self.calc_iris_center(new_landmarks["left_iris"])
                 self.camera.eyes_landmarks = self.mesh_landmarks.copy()
 
                 # Reset temp mesh_landmarks

@@ -1,6 +1,5 @@
 import pygame
 import threading
-import time
 from src.gaze_tracker import GazeTracker
 from consts import *
 
@@ -38,15 +37,18 @@ class Gazing:
                     self.stop_gazing()
                     return
 
-        self.stop_gazing()
+        #self.stop_gazing()
 
     def get_and_estimate_data(self):
         while not self.exit_event.is_set():
-            l_iris_cent = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
+            eye_input = self.gaze_tracker.detector.camera.eyes_landmarks.get("l_iris_center")
 
-            self.gaze_tracker.gaze = self.gaze_tracker.linear_mapping(l_iris_cent)
-            # self.gaze_tracker.gaze = self.gaze_tracker.polynomial_mapping(l_iris_cent)
-            # self.gaze_tracker.gaze = self.gaze_tracker.svr_mapping(l_iris_cent)
+            if method_num == 0:
+                self.gaze_tracker.gaze = self.gaze_tracker.linear_mapping(eye_input)
+            elif method_num == 1:
+                self.gaze_tracker.gaze = self.gaze_tracker.polynomial_mapping(eye_input)
+            elif method_num == 2:
+                self.gaze_tracker.gaze = self.gaze_tracker.svr_mapping(eye_input)
 
     def draw_gaze(self, alpha=0.5):
         # Smoothing factor (lower = smoother)
@@ -68,9 +70,9 @@ class Gazing:
                 # Fade previous trails
                 trail_surface.fill((0, 0, 0, 35), special_flags=pygame.BLEND_RGBA_SUB)
 
-                # Draw halo (larger, transparent)
-                halo_color = (*red, 60)  # RGBA: semi-transparent red
-                pygame.draw.circle(trail_surface, halo_color, (int(smoothed_pos[0]), int(smoothed_pos[1])), 25)
+                # # Draw halo (larger, transparent)
+                # halo_color = (*red, 60)  # RGBA: semi-transparent red
+                # pygame.draw.circle(trail_surface, halo_color, (int(smoothed_pos[0]), int(smoothed_pos[1])), 25)
 
                 # Draw main gaze dot (fully opaque red)
                 dot_color = (*red, 255)
