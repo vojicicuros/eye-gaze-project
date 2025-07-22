@@ -46,13 +46,14 @@ class Validation:
 
     def stop_validation(self):
         self.exit_event.set()
-        pygame.quit()
-        print('Exiting Validation')
+        pygame.display.quit()  # only tear down the display
+        print('Validation window closed')
 
     def start_validation(self):
 
         # Validation GUI
         pygame.init()
+        pygame.display.init()
         self.screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Validation Display")
 

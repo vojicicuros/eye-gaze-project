@@ -22,6 +22,7 @@ class Gazing:
 
         # Gazing GUI
         pygame.init()
+        pygame.display.init()
         self.screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Gazing Display")
         self.screen.fill(self.background_color)

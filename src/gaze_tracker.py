@@ -289,7 +289,6 @@ class GazeTracker:
     def validation_iris_data(self):
 
         self.calibration_data = self.read_from_file()
-        print(self.calibration_data)
         self.calculate_consts_linear()
         self.train_polynomial_regression()
         self.train_svr()
@@ -365,13 +364,22 @@ class GazeTracker:
         }
 
     def calculate_metrics_summary(self):
-
         if not self.all_metrics:
             print("No metrics to summarize.")
             return
 
         # Get all metric keys (assumes all dicts have the same keys)
         metric_keys = self.all_metrics[0].keys()
+
+        # Map each metric to its unit
+        unit_map = {
+            'accuracy_px': 'px',
+            'precision_px': 'px',
+            'accuracy_cm': 'cm',
+            'precision_cm': 'cm',
+            'accuracy_deg': '°',
+            'precision_deg': '°'
+        }
 
         summary = {}
 
@@ -380,15 +388,17 @@ class GazeTracker:
             summary[key] = {
                 'mean': round(np.mean(values), 3),
                 'min': round(np.min(values), 3),
-                'max': round(np.max(values), 3)
+                'max': round(np.max(values), 3),
+                'unit': unit_map.get(key, '')
             }
 
-        # Optional: print results
+        # Print results with units
         print("\nValidation Summary:")
         for key, stats in summary.items():
-            print(f"{key}: mean={stats['mean']}, min={stats['min']}, max={stats['max']}")
+            u = stats['unit']
+            print(f"{key} [{u}]: mean={stats['mean']}{u}, min={stats['min']}{u}, max={stats['max']}{u}")
 
-        # Optionally store or return it
+        # Store for later if needed
         self.metrics_summary = summary
 
     def calculate_positions(self, n=num_of_dots):

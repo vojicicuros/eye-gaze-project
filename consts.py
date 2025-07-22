@@ -2,7 +2,7 @@
 
 filename = "iris_data.json"
 
-method_num = 2
+method_num = 0
 
 # Colors
 black = (0, 0, 0)

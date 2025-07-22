@@ -18,6 +18,7 @@ if __name__ == '__main__':
     # Run calibration part (blocking until complete)
     gaze_tracker.calibration.calibration_gui_thread.start()
     gaze_tracker.calibration_data_thread.start()
+
     gaze_tracker.calibration.calibration_gui_thread.join()
     gaze_tracker.calibration_data_thread.join()
 
@@ -25,6 +26,7 @@ if __name__ == '__main__':
     gaze_tracker.validation.validation_gui_thread.start()
     gaze_tracker.validation_data_thread.start()
     gaze_tracker.validation.draw_gaze_gui_thread.start()
+
     gaze_tracker.validation.validation_gui_thread.join()
     gaze_tracker.validation_data_thread.join()
     gaze_tracker.validation.draw_gaze_gui_thread.join()
@@ -34,10 +36,13 @@ if __name__ == '__main__':
     gaze_tracker.gazing_part.gazing_data_thread.start()
     gaze_tracker.gazing_part.draw_gaze_thread.start()
 
+    gaze_tracker.gazing_part.gazing_gui_thread.join()
+    gaze_tracker.gazing_part.gazing_data_thread.join()
+    gaze_tracker.gazing_part.draw_gaze_thread.join()
+
     # Wait for camera and detector threads to finish
     for thread in processing_threads:
         thread.join()
 
-
-
+    print("All done!")
 

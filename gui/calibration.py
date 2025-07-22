@@ -113,8 +113,8 @@ class Calibration:
 
     def stop_calibration(self):
         self.exit_event.set()
-        pygame.quit()
-        print('Exiting Calibration')
+        pygame.display.quit()
+        print('Calibration window closed')
 
 # Debugging purposes
 # if __name__ == "__main__":
