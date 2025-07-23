@@ -15,8 +15,8 @@ class Validation:
         self.iris_data_flag = False
         self.positions = gaze_tracker.screen_positions
 
-        self.validation_gui_thread = threading.Thread(target=self.start_validation)
-        self.draw_gaze_gui_thread = threading.Thread(target=self.draw_gaze)
+        self.validation_gui_thread = threading.Thread(target=self.start_validation, daemon=True)
+        self.draw_gaze_gui_thread = threading.Thread(target=self.draw_gaze, daemon=True)
 
         self.exit_event = threading.Event()
 

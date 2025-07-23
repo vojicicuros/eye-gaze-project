@@ -12,9 +12,9 @@ class Gazing:
         self.screen = None
         self.background_color = black
 
-        self.gazing_gui_thread = threading.Thread(target=self.start_gaze_part)
-        self.gazing_data_thread = threading.Thread(target=self.get_and_estimate_data)
-        self.draw_gaze_thread = threading.Thread(target=self.draw_gaze)
+        self.gazing_gui_thread = threading.Thread(target=self.start_gaze_part, daemon=True)
+        self.gazing_data_thread = threading.Thread(target=self.get_and_estimate_data, daemon=True)
+        self.draw_gaze_thread = threading.Thread(target=self.draw_gaze, daemon=True)
 
         self.exit_event = threading.Event()
 
@@ -88,5 +88,9 @@ class Gazing:
 
     def stop_gazing(self):
         self.exit_event.set()
+
+        self.gazing_data_thread.join()
+        self.draw_gaze_thread.join()
+
         pygame.quit()
         print('Exiting Gazing')

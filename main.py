@@ -37,8 +37,6 @@ if __name__ == '__main__':
     gaze_tracker.gazing_part.draw_gaze_thread.start()
 
     gaze_tracker.gazing_part.gazing_gui_thread.join()
-    gaze_tracker.gazing_part.gazing_data_thread.join()
-    gaze_tracker.gazing_part.draw_gaze_thread.join()
 
     # Wait for camera and detector threads to finish
     for thread in processing_threads:

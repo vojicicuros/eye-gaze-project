@@ -50,8 +50,8 @@ class GazeTracker:
         self.gazing_part = Gazing(self)
 
         # self.predict_gaze_thread = threading.Thread(target=self.predict_gaze)
-        self.calibration_data_thread = threading.Thread(target=self.calibration_iris_data_wrap)
-        self.validation_data_thread = threading.Thread(target=self.validation_iris_data)
+        self.calibration_data_thread = threading.Thread(target=self.calibration_iris_data_wrap, daemon=True)
+        self.validation_data_thread = threading.Thread(target=self.validation_iris_data, daemon=True)
         self.exit_event = threading.Event()
 
     def calculate_consts_linear(self):
