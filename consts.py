@@ -2,7 +2,11 @@
 
 filename = "iris_data.json"
 
-method_num = 0  # 0 for linear mapping, 1 for polynomial_mapping, 2 for SVR method
+method_num = 1  # 0 for linear mapping, 1 for polynomial regression, 2 for SVR method
+
+# Models constants
+svr_c = 1000
+svr_epsilon = 0.5
 
 # Colors
 black = (0, 0, 0)
@@ -14,9 +18,9 @@ teal = (0, 128, 128)
 # Dimensions
 radius = 20
 padding = 20
-transition_steps = 15
+transition_steps = 20
 transition_time = 0.001
-collapse_steps = 2  # 20 default
+collapse_steps = 20  # 20 default
 collapse_time = 0.05
 num_of_dots = 3  # 3x3
 screen_width = 1000

@@ -38,7 +38,7 @@ class Calibration:
             pygame.draw.circle(self.screen, white, (x, y), shrinking_radius + 2)  # Shrinking outer border
             pygame.draw.circle(self.screen, red, (x, y), shrinking_radius)
 
-            self.draw_crosshair(self.screen, x, y)
+            self.draw_crosshair(self.screen, x, y, size=7, color=white)
             pygame.display.flip()
             time.sleep(collapse_time)
         self.iris_data_flag = False
@@ -91,7 +91,7 @@ class Calibration:
                 self.screen.fill(black)
                 pygame.draw.circle(self.screen, white, (intermediate_x, intermediate_y), radius + 3)
                 pygame.draw.circle(self.screen, red, (intermediate_x, intermediate_y), radius)
-                self.draw_crosshair(self.screen, intermediate_x, intermediate_y)
+                self.draw_crosshair(self.screen, intermediate_x, intermediate_y, size=7, color=white)
 
                 pygame.display.flip()
                 time.sleep(transition_time)
@@ -103,7 +103,6 @@ class Calibration:
 
             current_x, current_y = x, y
 
-            # Use the shrink_circle_at method here
             if idx != 0:
                 self.shrink_circle_at(x, y)
 
@@ -115,8 +114,3 @@ class Calibration:
         self.exit_event.set()
         pygame.display.quit()
         print('Calibration window closed')
-
-# Debugging purposes
-# if __name__ == "__main__":
-#     calibration = Calibration()
-#     calibration.start_calibration()

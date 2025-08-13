@@ -2,11 +2,6 @@ import cv2
 import mediapipe as mp
 import threading
 import numpy as np
-from mediapipe.python.solutions.face_mesh import FaceMesh
-
-
-# from camera_feed import Camera
-
 
 class Smoother:
     def __init__(self, alpha=0.1):
@@ -28,7 +23,6 @@ class Detector:
         # camera
         self.camera = camera
 
-        self.eye_box_initialized = False
         self.eye_crop_width = 100
         self.eye_crop_height = 50
 
@@ -90,18 +84,12 @@ class Detector:
         """
         Returns the most left and most right points from the smoothed left eye landmarks.
         """
-        # if not eye_input or len(eye_input) < 2:
-        #     return None, None
-        # Sort based on X coordinate
         sorted_eye = sorted(eye_input, key=lambda p: p[0])
         left_corner = sorted_eye[0]
         right_corner = sorted_eye[-1]
         return left_corner, right_corner
 
     def detect_mesh(self):
-
-        # while self.camera.face_box is None:
-        #     self.camera.face_box = self.detect_face_box()
 
         while True:
             if self.camera.running:

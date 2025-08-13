@@ -8,6 +8,8 @@ import numpy as np
 import json
 from sklearn.linear_model import LinearRegression
 from consts import *
+import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
@@ -54,7 +56,7 @@ class GazeTracker:
         self.validation_data_thread = threading.Thread(target=self.validation_iris_data, daemon=True)
         self.exit_event = threading.Event()
 
-    def calculate_consts_linear(self):
+    def calculate_consts_linear_map(self):
 
         # Horizontal calibration
         self.x1 = round(np.mean([self.calibration_data[0]['l_iris_center'][0],
@@ -78,6 +80,7 @@ class GazeTracker:
         self.y2 = round(np.mean([self.calibration_data[6]['l_iris_center'][1],
                                  self.calibration_data[7]['l_iris_center'][1],
                                  self.calibration_data[8]['l_iris_center'][1]]))
+
         self.beta1 = self.calibration_data[1]['screen_position'][1]
         self.beta2 = self.calibration_data[7]['screen_position'][1]
 
@@ -95,18 +98,7 @@ class GazeTracker:
             rx, ry = entry["r_eye_corner"]
             sx, sy = entry["screen_position"]
 
-            # Optional: You can expand this with polynomial terms of all inputs if needed
             X.append([1, ix, iy, lx, ly, rx, ry])
-            # X.append([
-            #     1,
-            #     ix, iy, lx, ly, rx, ry,
-            #     ix ** 2, iy ** 2, lx ** 2, ly ** 2, rx ** 2, ry ** 2,
-            #     ix * iy, ix * lx, ix * ly, ix * rx, ix * ry,
-            #     iy * lx, iy * ly, iy * rx, iy * ry,
-            #     lx * ly, lx * rx, lx * ry,
-            #     ly * rx, ly * ry,
-            #     rx * ry
-            # ])
 
             Yx.append(sx)
             Yy.append(sy)
@@ -146,8 +138,8 @@ class GazeTracker:
         from sklearn.preprocessing import StandardScaler
         from sklearn.svm import SVR
 
-        self.svr_model_x = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=1000, epsilon=0.5))
-        self.svr_model_y = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=1000, epsilon=0.5))
+        self.svr_model_x = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=svr_c, epsilon=svr_epsilon))
+        self.svr_model_y = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=svr_c, epsilon=svr_epsilon))
 
         self.svr_model_x.fit(X, Yx)
         self.svr_model_y.fit(X, Yy)
@@ -158,7 +150,7 @@ class GazeTracker:
 
         x, y = live_data
 
-        # Clamp the x and y to be within the calibration bounds
+        # Clip withing [x1,x2] and [y1,y2]
         x = np.clip(x, self.x1, self.x2)
         y = np.clip(y, self.y1, self.y2)
 
@@ -166,7 +158,7 @@ class GazeTracker:
         alpha = self.alpha1 + (x - self.x1) / (self.x2 - self.x1) * (self.alpha2 - self.alpha1)
         beta = self.beta1 + (y - self.y1) / (self.y2 - self.y1) * (self.beta2 - self.beta1)
 
-        # Optional: clamp again to ensure you're within screen size
+        # Clip with padding
         alpha = np.clip(alpha, padding, self.screen_width - padding)
         alpha = np.abs(self.screen_width - padding - alpha)
         beta = np.clip(beta, padding, self.screen_height - padding)
@@ -203,6 +195,8 @@ class GazeTracker:
 
             Args:
                 iris_center (tuple): A tuple (x, y) representing the iris center coordinates in camera space.
+                left_corner(tuple): (x, y) Representing left eye corner
+                right_corner(tuple): (x, y) Representing right eye corner
 
             Returns:
                 (screen_x, screen_y): predicted screen coordinates as floats.
@@ -289,7 +283,7 @@ class GazeTracker:
     def validation_iris_data(self):
 
         self.calibration_data = self.read_from_file()
-        self.calculate_consts_linear()
+        self.calculate_consts_linear_map()
         self.train_polynomial_regression()
         self.train_svr()
 
@@ -303,6 +297,7 @@ class GazeTracker:
                 eye_center_input = self.detector.camera.eyes_landmarks.get("l_iris_center")
                 eye_outer_input = self.detector.camera.eyes_landmarks.get("left_eye")
                 l_corner_input, r_corner_input = self.detector.get_eye_corners(eye_outer_input)
+                print(l_corner_input, r_corner_input)
 
                 if method_num == 0:
                     self.gaze = self.linear_mapping(eye_center_input)
@@ -363,42 +358,34 @@ class GazeTracker:
             'precision_deg': precision_deg
         }
 
+    def robust_summary(self, values):
+        v = np.asarray(values)
+        return {
+            'median': np.round(np.median(v), 3),
+            'IQR': (np.round(np.percentile(v, 25), 3), np.round(np.percentile(v, 75), 3)),
+            'p95': np.round(np.percentile(v, 95), 3)
+        }
+
     def calculate_metrics_summary(self):
         if not self.all_metrics:
             print("No metrics to summarize.")
             return
 
-        # Get all metric keys (assumes all dicts have the same keys)
         metric_keys = self.all_metrics[0].keys()
-
-        # Map each metric to its unit
-        unit_map = {
-            'accuracy_px': 'px',
-            'precision_px': 'px',
-            'accuracy_cm': 'cm',
-            'precision_cm': 'cm',
-            'accuracy_deg': '°',
-            'precision_deg': '°'
-        }
-
+        unit_map = {'accuracy_px': 'px', 'precision_px': 'px', 'accuracy_cm': 'cm', 'precision_cm': 'cm',
+                    'accuracy_deg': '°', 'precision_deg': '°'}
         summary = {}
-
         for key in metric_keys:
-            values = [m[key] for m in self.all_metrics]
-            summary[key] = {
-                'mean': round(np.mean(values), 3),
-                'min': round(np.min(values), 3),
-                'max': round(np.max(values), 3),
-                'unit': unit_map.get(key, '')
-            }
+            vals = [m[key] for m in self.all_metrics]
+            s = self.robust_summary(vals)
+            s['unit'] = unit_map.get(key, '')
+            summary[key] = s
 
-        # Print results with units
-        print("\nValidation Summary:")
-        for key, stats in summary.items():
-            u = stats['unit']
-            print(f"{key} [{u}]: mean={stats['mean']}{u}, min={stats['min']}{u}, max={stats['max']}{u}")
-
-        # Store for later if needed
+        print("\nValidation Summary (median [IQR], p95):")
+        for k, s in summary.items():
+            u = s['unit']
+            q1, q3 = s['IQR']
+            print(f"{k} [{u}]: median={s['median']}{u}, IQR=[{q1},{q3}]{u}, p95={s['p95']}{u}")
         self.metrics_summary = summary
 
     def calculate_positions(self, n=num_of_dots):
@@ -458,7 +445,7 @@ class GazeTracker:
             return None
 
     def env_cleanup(self):
-        # json file must be in data folder
+        # Json file must be in data folder
 
         file_path = os.path.join("data", "iris_data.json")
         if os.path.isfile(file_path):

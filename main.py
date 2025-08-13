@@ -32,8 +32,8 @@ if __name__ == '__main__':
     gaze_tracker.validation.draw_gaze_gui_thread.join()
 
     # Run Gazing part
-    gaze_tracker.gazing_part.gazing_gui_thread.start()
     gaze_tracker.gazing_part.gazing_data_thread.start()
+    gaze_tracker.gazing_part.gazing_gui_thread.start()
     gaze_tracker.gazing_part.draw_gaze_thread.start()
 
     gaze_tracker.gazing_part.gazing_gui_thread.join()
