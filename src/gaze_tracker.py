@@ -11,7 +11,9 @@ from consts import *
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.svm import SVR
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import PolynomialFeatures, RobustScaler
+from sklearn.linear_model import RidgeCV
+from sklearn.pipeline import Pipeline
 from sklearn.pipeline import make_pipeline
 
 
@@ -45,6 +47,7 @@ class GazeTracker:
 
         self.all_metrics = []
         self.metrics_summary = None
+        self.metrics_summary_table = None
 
         self.screen_positions = self.calculate_positions(num_of_dots)
         self.calibration = Calibration(self)
@@ -83,34 +86,6 @@ class GazeTracker:
 
         self.beta1 = self.calibration_data[1]['screen_position'][1]
         self.beta2 = self.calibration_data[7]['screen_position'][1]
-
-    def train_polynomial_regression(self):
-        """
-        Train polynomial regression using iris center and eye corners as input features.
-        """
-        X = []
-        Yx = []
-        Yy = []
-
-        for entry in self.calibration_data:
-            ix, iy = entry["l_iris_center"]
-            lx, ly = entry["l_eye_corner"]
-            rx, ry = entry["r_eye_corner"]
-            sx, sy = entry["screen_position"]
-
-            X.append([1, ix, iy, lx, ly, rx, ry])
-
-            Yx.append(sx)
-            Yy.append(sy)
-
-        X = np.array(X)
-        Yx = np.array(Yx)
-        Yy = np.array(Yy)
-
-        self.poly_reg_x = LinearRegression().fit(X, Yx)
-        self.poly_reg_y = LinearRegression().fit(X, Yy)
-
-        print("Polynomial regression trained.")
 
     def train_svr(self):
         """
@@ -165,9 +140,49 @@ class GazeTracker:
 
         return np.array([alpha, beta])
 
+    def train_polynomial_regression(self, poly_degree=2):
+        """
+        Train robust polynomial regression for gaze estimation.
+        Based on method from 'A robust method for calibration of eye tracking data' (the PDF).
+        """
+        X = []
+        Yx = []
+        Yy = []
+
+        for entry in self.calibration_data:
+            ix, iy = entry["l_iris_center"]
+            lx, ly = entry["l_eye_corner"]
+            rx, ry = entry["r_eye_corner"]
+            sx, sy = entry["screen_position"]
+
+            X.append([ix, iy, lx, ly, rx, ry])
+            Yx.append(sx)
+            Yy.append(sy)
+
+        X = np.array(X)
+        Yx = np.array(Yx)
+        Yy = np.array(Yy)
+
+        # Robust polynomial regression (degree=2)
+        self.poly_reg_x = Pipeline([
+            ("scaler", RobustScaler()),
+            ("poly", PolynomialFeatures(degree=poly_degree, include_bias=False)),
+            ("ridge", RidgeCV(alphas=np.logspace(-3, 3, 20), cv=5))
+        ])
+        self.poly_reg_y = Pipeline([
+            ("scaler", RobustScaler()),
+            ("poly", PolynomialFeatures(degree=poly_degree, include_bias=False)),
+            ("ridge", RidgeCV(alphas=np.logspace(-3, 3, 20), cv=5))
+        ])
+
+        self.poly_reg_x.fit(X, Yx)
+        self.poly_reg_y.fit(X, Yy)
+
+        print("Robust polynomial regression trained (degree={})".format(poly_degree))
+
     def polynomial_mapping(self, iris_center, l_eye_corner, r_eye_corner):
         """
-        Predict the gaze point using polynomial regression with extra eye corner features.
+        Predict gaze point using robust polynomial regression.
         """
         if iris_center is None or l_eye_corner is None or r_eye_corner is None:
             return None
@@ -176,7 +191,7 @@ class GazeTracker:
         lx, ly = l_eye_corner
         rx, ry = r_eye_corner
 
-        features = np.array([[1, ix, iy, lx, ly, rx, ry]])
+        features = np.array([[ix, iy, lx, ly, rx, ry]])
 
         try:
             alpha = self.poly_reg_x.predict(features)[0]
@@ -287,6 +302,9 @@ class GazeTracker:
         self.train_polynomial_regression()
         self.train_svr()
 
+        # scaler = self.poly_reg_x.named_steps["scaler"]
+        # self.plot_scaling_grid(self.calibration_data, fitted_scaler=scaler, title_prefix="poly/")
+
         predictions = []
         was_collecting = False  # Tracks the previous state of the flag
         current_position = 1
@@ -297,7 +315,6 @@ class GazeTracker:
                 eye_center_input = self.detector.camera.eyes_landmarks.get("l_iris_center")
                 eye_outer_input = self.detector.camera.eyes_landmarks.get("left_eye")
                 l_corner_input, r_corner_input = self.detector.get_eye_corners(eye_outer_input)
-                print(l_corner_input, r_corner_input)
 
                 if method_num == 0:
                     self.gaze = self.linear_mapping(eye_center_input)
@@ -320,25 +337,36 @@ class GazeTracker:
 
             time.sleep(0.01)
 
-        self.calculate_metrics_summary()
+        label = 'Linearno mapiranje' if method_num == 0 else (
+            'Polinomijalna regresija' if method_num == 1 else 'SVR')
+
+        self.calculate_metrics_summary(
+            save_csv_path='results/metrics_summary.csv',
+            method_label=label
+        )
+
+        self.calculate_stability_summary(
+            save_csv_path='results/metrics_stability.csv',
+            method_label=label,
+            include_magnitude=True
+        )
 
     def calculate_metrics_per_target(self, predictions, target_point, screen_dpi=81, distance_cm=60):
-        """
-        predictions: list of (x, y) gaze points (in pixels)
-        target_point: (x, y) position of the shown calibration point (in pixels)
-        screen_dpi: screen resolution in dots per inch (default 81 for 27" monitor
-                                                        default 91 for 24" monitor)
-        distance_cm: estimated distance from user's eyes to screen in cm (default 60 cm)
-        """
-
         predictions = np.array(predictions)
         target_point = np.array(target_point)
 
         # --- Pixels ---
         prediction_mean = np.mean(predictions, axis=0)
         accuracy_px = np.linalg.norm(prediction_mean - target_point)
-        precision_px = np.std(predictions, axis=0)
-        precision_px = np.linalg.norm(precision_px)
+        precision_px = np.linalg.norm(np.std(predictions, axis=0))
+
+        # std po osama
+        std_x = np.std(predictions[:, 0])
+        std_y = np.std(predictions[:, 1])
+
+        # bias po osama
+        bias_x = prediction_mean[0] - target_point[0]
+        bias_y = prediction_mean[1] - target_point[1]
 
         # --- Centimeters ---
         px_to_cm = 2.54 / screen_dpi
@@ -349,44 +377,168 @@ class GazeTracker:
         accuracy_deg = math.degrees(math.atan(accuracy_cm / distance_cm))
         precision_deg = math.degrees(math.atan(precision_cm / distance_cm))
 
+        # --- p95 ---
+        errors_px = np.linalg.norm(predictions - target_point, axis=1)
+        errors_cm = errors_px * px_to_cm
+        errors_deg = np.degrees(np.arctan(errors_cm / distance_cm))
+
+        p95_px = np.percentile(errors_px, 95)
+        p95_deg = np.percentile(errors_deg, 95)
+
         return {
             'accuracy_px': accuracy_px,
-            'precision_px': precision_px,
             'accuracy_cm': accuracy_cm,
-            'precision_cm': precision_cm,
             'accuracy_deg': accuracy_deg,
-            'precision_deg': precision_deg
+            'precision_px': precision_px,
+            'precision_cm': precision_cm,
+            'precision_deg': precision_deg,
+            'std_x': std_x,
+            'std_y': std_y,
+            'bias_x': bias_x,
+            'bias_y': bias_y,
+            'p95_px': p95_px,
+            'p95_deg': p95_deg
         }
 
-    def robust_summary(self, values):
-        v = np.asarray(values)
-        return {
-            'median': np.round(np.median(v), 3),
-            'IQR': (np.round(np.percentile(v, 25), 3), np.round(np.percentile(v, 75), 3)),
-            'p95': np.round(np.percentile(v, 95), 3)
+    def _metrics_table(self, metrics_list):
+        if not metrics_list:
+            return None
+        import pandas as pd
+
+        df = pd.DataFrame(metrics_list)
+
+        # SVI ključevi koje očekujemo u metrics_list dict-ovima:
+        cols_order = {
+            'accuracy_px': 'Tačnost [px]',
+            'accuracy_cm': 'Tačnost [cm]',
+            'accuracy_deg': 'Tačnost [°]',
+            'precision_px': 'Preciznost [px]',
+            'precision_cm': 'Preciznost [cm]',
+            'precision_deg': 'Preciznost [°]',
         }
 
-    def calculate_metrics_summary(self):
-        if not self.all_metrics:
+        # --- DIJAGNOSTIKA (pomaže kad "neće") ---
+        # Proveri da li neki ključ fali u df:
+        missing = [k for k in cols_order if k not in df.columns]
+        if missing:
+            raise KeyError(
+                f"Nedostaju sledeći ključevi u all_metrics: {missing}. "
+                f"Dobijeni ključevi: {list(df.columns)}"
+            )
+
+        use_cols = list(cols_order.keys())
+
+        mean_row = df[use_cols].mean()
+        min_row = df[use_cols].min()
+        max_row = df[use_cols].max()
+
+        out = (
+            pd.DataFrame([mean_row, min_row, max_row],
+                         index=['Srednja vrednost', 'Minimum', 'Maksimum'])
+            .rename(columns=cols_order)
+            .applymap(lambda x: round(float(x), 3))
+        )
+        return out
+
+    def _metrics_table_stability(self, metrics_list, include_magnitude=True):
+        """
+        Pravi zasebnu tabelu za stabilnost/sistematske metrike:
+          Std X/Y [px], Bias X/Y [px], p95 [px], p95 [°]
+        Opciono dodaje magnitude (RMS std i |bias|).
+        """
+        if not metrics_list:
+            return None
+        import pandas as pd
+        import numpy as np
+
+        df = pd.DataFrame(metrics_list)
+
+        # Osnovne kolone
+        cols_order = {
+            'std_x': 'Std X [px]',
+            'std_y': 'Std Y [px]',
+            'bias_x': 'Bias X [px]',
+            'bias_y': 'Bias Y [px]',
+            'p95_px': 'p95 [px]',
+            'p95_deg': 'p95 [°]',
+        }
+
+        # (opciono) dodaj magnitude: RMS std i |bias|
+        if include_magnitude:
+            # Napravi kolone ako ne postoje
+            if 'std_mag' not in df.columns:
+                df['std_mag'] = np.sqrt(np.square(df.get('std_x', 0)) + np.square(df.get('std_y', 0)))
+            if 'bias_mag' not in df.columns:
+                df['bias_mag'] = np.sqrt(np.square(df.get('bias_x', 0)) + np.square(df.get('bias_y', 0)))
+
+            cols_order.update({
+                'std_mag': 'Std mag [px]',
+                'bias_mag': 'Bias mag [px]',
+            })
+
+        # Provera ključeva
+        missing = [k for k in cols_order if k not in df.columns]
+        if missing:
+            raise KeyError(f"Nedostaju ključevi za stability tabelu: {missing}")
+
+        use_cols = list(cols_order.keys())
+        mean_row = df[use_cols].mean()
+        min_row = df[use_cols].min()
+        max_row = df[use_cols].max()
+
+        out = (
+            pd.DataFrame([mean_row, min_row, max_row],
+                         index=['Srednja vrednost', 'Minimum', 'Maksimum'])
+            .rename(columns=cols_order)
+            .applymap(lambda x: round(float(x), 3))
+        )
+        return out
+
+    def calculate_stability_summary(self, save_csv_path=None, method_label=None, include_magnitude=True):
+        """
+        Ispiše i (opciono) snimi stability tabelu (std/bias/p95).
+        """
+        if not getattr(self, 'all_metrics', None):
             print("No metrics to summarize.")
-            return
+            return None
 
-        metric_keys = self.all_metrics[0].keys()
-        unit_map = {'accuracy_px': 'px', 'precision_px': 'px', 'accuracy_cm': 'cm', 'precision_cm': 'cm',
-                    'accuracy_deg': '°', 'precision_deg': '°'}
-        summary = {}
-        for key in metric_keys:
-            vals = [m[key] for m in self.all_metrics]
-            s = self.robust_summary(vals)
-            s['unit'] = unit_map.get(key, '')
-            summary[key] = s
+        table = self._metrics_table_stability(self.all_metrics, include_magnitude=include_magnitude)
+        title = f"Tabela – stabilnost i sistematske metrike{f' ({method_label})' if method_label else ''}"
+        print("\n" + title)
+        print(table.to_string())
 
-        print("\nValidation Summary (median [IQR], p95):")
-        for k, s in summary.items():
-            u = s['unit']
-            q1, q3 = s['IQR']
-            print(f"{k} [{u}]: median={s['median']}{u}, IQR=[{q1},{q3}]{u}, p95={s['p95']}{u}")
-        self.metrics_summary = summary
+        if save_csv_path:
+            table.to_csv(save_csv_path, index=True, encoding='utf-8-sig')
+
+        self.metrics_stability_table = table
+        return table
+
+    def calculate_metrics_summary(self, save_csv_path=None, method_label=None):
+        """
+        - Prikaže tabelu sa Srednja/Minimum/Maksimum po metriki.
+        - Ako su prosleđene putanje, snimi CSV
+
+        save_csv_path: npr. 'results/linear_summary.csv'
+        method_label : npr. 'Linearno mapiranje' ili 'SVR' (samo za naslov ispisa)
+        """
+        if not getattr(self, 'all_metrics', None):
+            print("No metrics to summarize.")
+            return None
+
+        table = self._metrics_table(self.all_metrics)
+        if table is None:
+            print("No metrics to summarize.")
+            return None
+
+        title = f"Tabela – statistika tačnosti i preciznosti{f' ({method_label})' if method_label else ''}"
+        print("\n" + title)
+        print(table.to_string())
+
+        if save_csv_path:
+            table.to_csv(save_csv_path, index=True, encoding='utf-8-sig')
+
+        self.metrics_summary_table = table
+        return table
 
     def calculate_positions(self, n=num_of_dots):
 
@@ -414,7 +566,7 @@ class GazeTracker:
                             print(f"Warning: Overwriting non-list data in {filename}")
                             existing_data = []
                     except json.JSONDecodeError:
-                        print(f"⚠Warning: Corrupted JSON in {filename}. Overwriting file.")
+                        print(f"Warning: Corrupted JSON in {filename}. Overwriting file.")
                         existing_data = []
             else:
                 existing_data = []
@@ -454,6 +606,86 @@ class GazeTracker:
         else:
             "No json file."
         print("Environment is fine.")
+
+    def _extract_X_from_calibration(self, calibration_data):
+        """
+        calibration_data: lista dict-ova sa ključevima:
+          - "l_iris_center": [ix, iy]
+          - "l_eye_corner":  [lx, ly]
+          - "r_eye_corner":  [rx, ry]
+        """
+        X = []
+        for e in calibration_data:
+            ix, iy = e["l_iris_center"]
+            lx, ly = e["l_eye_corner"]
+            rx, ry = e["r_eye_corner"]
+            X.append([ix, iy, lx, ly, rx, ry])
+        X = np.array(X, dtype=float)
+        names = ["ix", "iy", "lx", "ly", "rx", "ry"]
+        return X, names
+
+    def plot_scaling_grid(self, calibration_data, fitted_scaler: RobustScaler = None, title_prefix=""):
+        """
+        Pravi 3x2 grid boxplotova sa *dve y-ose* po subplotu (pre/posle).
+        Ako je fitted_scaler None: fituje novi RobustScaler na X i koristi ga.
+        Ako je dat fitted_scaler: koristi baš taj (npr. iz pipeline-a).
+        """
+        X, names = self._extract_X_from_calibration(calibration_data)
+
+        if fitted_scaler is None:
+            scaler = RobustScaler()
+            Xs = scaler.fit_transform(X)
+            print("RobustScaler: fitovan na kalibracionim podacima.")
+        else:
+            scaler = fitted_scaler
+            Xs = scaler.transform(X)
+            print("RobustScaler: korišćen već istreniran scaler iz pipeline-a.")
+
+        # Raspored po redovima
+        layout = [["ix", "iy"],
+                  ["lx", "ly"],
+                  ["rx", "ry"]]
+
+        fig, axes = plt.subplots(3, 2, figsize=(11, 9))
+        axes = np.asarray(axes)
+
+        # mapiranje imena na indeks kolone u X
+        col_idx = {n: i for i, n in enumerate(names)}
+
+        for r, row in enumerate(layout):
+            for c, feat in enumerate(row):
+                ax = axes[r, c]
+                j = col_idx[feat]
+
+                pre_vals = X[:, j]
+                post_vals = Xs[:, j]
+
+                ax2 = ax.twinx()  # druga y-osa za "posle"
+
+                # Boxplot "pre" (levo)
+                ax.boxplot(pre_vals, positions=[1], widths=0.4)
+                ax.set_ylabel("pre scale")
+
+                # Boxplot "posle" (desno)
+                ax2.boxplot(post_vals, positions=[2], widths=0.4)
+                ax2.set_ylabel("posle scale")
+
+                # Podešavanje x ose
+                ax.set_xticks([1, 2])
+                ax.set_xticklabels(["pre", "posle"])
+
+                # Opsezi y-osa nezavisni (svaka skala priča “svoj jezik”)
+                # Ako želiš fiksni opseg, odkomentariši i prilagodi:
+                # ax.set_ylim(np.min(pre_vals), np.max(pre_vals))
+                # ax2.set_ylim(np.min(post_vals), np.max(post_vals))
+
+                ax.set_title(f"{title_prefix}{feat}")
+
+        plt.tight_layout()
+        plt.show()
+
+        # opciono: vrati scaler ako je fitovan ovde
+        return scaler
 
 
 
