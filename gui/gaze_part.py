@@ -1,10 +1,9 @@
-import os, time, math, csv, threading
+import os, time, csv, threading
 from collections import deque
 from datetime import datetime
-
-import pygame
 from src.gaze_tracker import GazeTracker
 from consts import *
+import pygame
 
 try:
     # matplotlib i PIL samo za eksport (van real-time petlje)
@@ -21,9 +20,12 @@ class Gazing:
     Segment 'gaze_part':
     - renderuje pozadinski tekst (sliku) i tačku pogleda u realnom vremenu
     - beleži sve uzorke (t, x, y) u thread-safe bafer
-    - na 'Q' pravi plot (pozadina + scatter) i CSV dump
+    - na 'Q' pravi plot(ove) i CSV dump:
+        * SCATTER: pozadina + tačke
+        * PATH   : pozadina + povezana linija (putanja)
+        * XY/FRAMES: x i y po broju frejma (dvostruka y-osa)
     """
-    def __init__(self, gaze_tracker: GazeTracker, bg_path: str = "text2.png", out_dir: str = "results"):
+    def __init__(self, gaze_tracker: GazeTracker, bg_path: str = background_image, out_dir: str = "results"):
         self.gaze_tracker = gaze_tracker
 
         # --- GUI state ---
@@ -66,9 +68,12 @@ class Gazing:
             self.samples.append((ts, float(x), float(y)))
 
     def _compose_paths(self, method_label: str):
+        """
+        Vraća osnovne putanje: <base>.png i <base>.csv (scatter/path/xyframes dobijaju sufikse).
+        """
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base = f"reading_{method_label}_{stamp}"
-        png_path = os.path.join(self.out_dir, base + ".png")
+        png_path = os.path.join(self.out_dir, base + ".png")  # koristi se kao baza
         csv_path = os.path.join(self.out_dir, base + ".csv")
         return png_path, csv_path
 
@@ -84,30 +89,26 @@ class Gazing:
             w.writerows(rows)
         print(f"[Gazing] CSV sačuvan: {csv_path}")
 
-    def _export_plot(self, png_path: str):
-        """Crtaj pozadinu i scatter tačaka (bez blokiranja GUI niti)."""
+    # ---------- PLOT HELPERS ----------
+
+    def _prepare_plot_context(self):
+        """
+        Učita pozadinu i pripremi fig/ax + vrati xs, ys iz bafera.
+        Koordinate i osi su poravnate sa pygame prozorom (0..W, 0..H; invertovana Y osa).
+        """
         if Image is None or plt is None:
             print("[Gazing] matplotlib/Pillow nisu dostupni – preskačem plot.")
-            return
+            return None, None, None, None
 
-        # 1) priprema podataka
         with self.buf_lock:
             rows = list(self.samples)
         if not rows:
             print("[Gazing] Nema uzoraka za plot.")
-            return
+            return None, None, None, None
 
         xs = [r[1] for r in rows]
         ys = [r[2] for r in rows]
 
-        # 2) učitaj i poravnaj pozadinu
-        bg_img = None
-        try:
-            bg_img = Image.open(self.bg_path).convert("RGBA").resize((screen_width, screen_height))
-        except Exception as e:
-            print(f"[Gazing] Ne mogu učitati pozadinu '{self.bg_path}': {e}")
-
-        # 3) matplotlib figura u istim dimenzijama
         dpi = 100
         fig_w = screen_width / dpi
         fig_h = screen_height / dpi
@@ -117,21 +118,106 @@ class Gazing:
         ax.set_ylim([screen_height, 0])  # invert Y da se poklopi sa pygame koordinatama
         ax.axis("off")
 
-        if bg_img is not None:
+        # pozadina
+        try:
+            bg_img = Image.open(self.bg_path).convert("RGBA").resize((screen_width, screen_height))
             ax.imshow(bg_img, extent=[0, screen_width, screen_height, 0])
+        except Exception as e:
+            print(f"[Gazing] Ne mogu učitati pozadinu '{self.bg_path}': {e}")
 
-        # 4) scatter (male, poluprozirne tačke)
+        return fig, ax, xs, ys
+
+    def _export_plot(self, png_path: str):
+        """SCATTER: pozadina + tačke."""
+        fig, ax, xs, ys = self._prepare_plot_context()
+        if fig is None:
+            return
         ax.scatter(xs, ys, s=8, alpha=0.5)
-
-        fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0)
+        fig.savefig(png_path, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close(fig)
-        print(f"[Gazing] Plot sačuvan: {png_path}")
+        print(f"[Gazing] Scatter plot sačuvan: {png_path}")
+
+    def _export_plot_path(self, png_path: str, line_width: float = 1.2, alpha_line: float = 0.9,
+                          color: str = "tab:blue", add_scatter: bool = False):
+        """
+        PATH: jedna kontinuirana linija preko pozadine (redosled = vreme).
+        """
+        fig, ax, xs, ys = self._prepare_plot_context()
+        if fig is None:
+            return
+
+        if add_scatter:
+            ax.scatter(xs, ys, s=5, alpha=0.6, color=color)
+
+        ax.plot(xs, ys, linewidth=line_width, alpha=alpha_line, color=color)
+        ax.set_xlabel('x koordinata [px]')
+        ax.set_ylabel('y koordinata [px]')
+
+        ax.set_xlim([0, screen_width])
+        ax.set_ylim([screen_height, 0])
+
+        fig.savefig(png_path, dpi=100, bbox_inches="tight", pad_inches=0)
+        plt.close(fig)
+        print(f"[Gazing] Path plot sačuvan: {png_path}")
+
+    def _export_plot_xy_frames(self, png_path: str,
+                               s: float = 8,
+                               alpha_pts: float = 0.8,
+                               color_x: str = "tab:red",
+                               color_y: str = "tab:blue"):
+        """
+        Scatter po frejmovima: dva y-osa (x[px] levo u crvenom, y[px] desno u plavom).
+        Frejm = indeks uzorka od početka gaze_part-a.
+        """
+        if Image is None or plt is None:
+            print("[Gazing] matplotlib/Pillow nisu dostupni – preskačem plot.")
+            return
+
+        with self.buf_lock:
+            rows = list(self.samples)
+
+        if not rows:
+            print("[Gazing] Nema uzoraka za XY/frames plot.")
+            return
+
+        frames = list(range(len(rows)))
+        xs = [r[1] for r in rows]
+        ys = [r[2] for r in rows]
+
+        fig, ax1 = plt.subplots(figsize=(8, 6), dpi=100)
+        ax1.scatter(frames, xs, s=s, alpha=alpha_pts, color=color_x)
+        ax1.set_xlabel("broj frejma")
+        ax1.set_ylabel("x koordinata pogleda [px]", color=color_x)
+        ax1.tick_params(axis='y', labelcolor=color_x)
+        ax1.set_xlim(0, max(1, len(frames) - 1))
+        ax1.set_ylim(0, screen_width)
+
+        ax2 = ax1.twinx()
+        ax2.scatter(frames, ys, s=s, alpha=alpha_pts, color=color_y)
+        ax2.set_ylabel("y koordinata pogleda [px]", color=color_y)
+        ax2.tick_params(axis='y', labelcolor=color_y)
+        ax2.set_ylim(0, screen_height)
+
+        fig.tight_layout()
+        fig.savefig(png_path, bbox_inches="tight", pad_inches=0)
+        plt.close(fig)
+        print(f"[Gazing] XY/frames plot sačuvan: {png_path}")
 
     def _finalize_and_save(self, method_label: str):
-        """Pozvati na izlazu: snimi CSV i PNG plot."""
+        """
+        Pozvati na izlazu: snimi CSV i tri slike (scatter + path + xy_frames) preko iste pozadine.
+        Imena fajlova: <base>_scatter.png, <base>_path.png, <base>_xy_frames.png, <base>.csv
+        """
         png_path, csv_path = self._compose_paths(method_label)
+        base, _ = os.path.splitext(png_path)
+        scatter_path = base + "_scatter.png"
+        path_path    = base + "_path.png"
+        xy_path      = base + "_xy_frames.png"
+
         self._export_csv(csv_path)
-        self._export_plot(png_path)
+        self._export_plot(scatter_path)
+        self._export_plot_path(path_path)
+        self._export_plot_xy_frames(xy_path)
 
     # ---------- RESOURCE LOADING ----------
 
@@ -149,7 +235,7 @@ class Gazing:
     # ---------- GUI LOOP ----------
 
     def start_gaze_part(self, alpha: float = None, dot_radius: int = None):
-        """Glavni GUI i prikupljanje tačaka. Na 'Q' eksportuje PNG + CSV."""
+        """Glavni GUI i prikupljanje tačaka. Na 'Q' eksportuje PNG + CSV i GASI NITI."""
         alpha = self.alpha_default if alpha is None else alpha
         dot_radius = self.dot_radius_default if dot_radius is None else dot_radius
 
@@ -203,7 +289,8 @@ class Gazing:
                         self.stop_gazing()
                         running = False
                     elif event.key == pygame.K_q:
-                        # završi i eksportuj
+                        # **ISPRAVKA**: odmah ugasi radne niti i setuj exit_event
+                        self.stop_gazing()
                         running = False
                     elif event.key == pygame.K_LEFTBRACKET:   # [
                         alpha = max(0.01, alpha - 0.05)
@@ -240,17 +327,16 @@ class Gazing:
                 self.screen.blit(trail_surface, (0, 0))
                 pygame.draw.circle(self.screen, main_color, (ix, iy), dot_radius)
 
-                # snimi uzorak (float pre int je OK)
+                # snimi uzorak
                 self._record_gaze_point(smoothed_pos[0], smoothed_pos[1])
 
             pygame.display.flip()
             clock.tick(60)
 
-        # Nakon izlaska iz petlje – eksport (PNG + CSV) i graceful shutdown
+        # Nakon izlaska – eksport (CSV + 3 PNG) i graceful shutdown GUI-a
         try:
-            # method_label prema method_num
             label = 'Linearno_mapiranje' if method_num == 0 else (
-                    'Polinomijalna_regresija' if method_num == 1 else 'SVR')
+                    'Polinomijalna_regresija' if method_num == 1 else 'None')
             self._finalize_and_save(method_label=label)
         except Exception as e:
             print(f"[Gazing] Greška pri eksportu: {e}")
@@ -285,7 +371,7 @@ class Gazing:
                 except Exception:
                     l_corner_input, r_corner_input = None, None
 
-                method = method_num  # 0=linear,1=poly,2=svr
+                method = method_num  # 0=linear,1=poly
                 if method == 0:
                     if eye_center_input is None:
                         time.sleep(0.001)
@@ -296,11 +382,6 @@ class Gazing:
                         time.sleep(0.001)
                         continue
                     gaze = self.gaze_tracker.polynomial_mapping(eye_center_input, l_corner_input, r_corner_input)
-                else:
-                    if (eye_center_input is None) or (l_corner_input is None) or (r_corner_input is None):
-                        time.sleep(0.001)
-                        continue
-                    gaze = self.gaze_tracker.svr_mapping(eye_center_input, l_corner_input, r_corner_input)
 
                 if gaze is not None:
                     self.gaze_tracker.gaze = (float(gaze[0]), float(gaze[1]))
@@ -331,3 +412,5 @@ class Gazing:
         except Exception:
             pass
         print('Exiting Gazing')
+
+

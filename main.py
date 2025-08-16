@@ -1,7 +1,25 @@
+import os
+import consts
 from src.gaze_tracker import GazeTracker
 
 
+def set_method_num():
+    while True:
+        try:
+            consts.method_num = int(input("Izaberi metod (0=Linearno, 1=Polinomijalna): "))
+            if consts.method_num in (0, 1):
+                break
+            else:
+                print("Dozvoljeni su samo 0 i 1.")
+        except ValueError:
+            print("Unesi ceo broj (0 ili 1).")
+
+    print(f"[INFO] method_num = {consts.method_num}")
+
 if __name__ == '__main__':
+
+    set_method_num()
+
     gaze_tracker = GazeTracker()
 
     # Camera and detection threads

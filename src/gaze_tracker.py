@@ -9,12 +9,9 @@ import json
 from sklearn.linear_model import LinearRegression
 from consts import *
 import matplotlib.pyplot as plt
-import pandas as pd
-from sklearn.svm import SVR
 from sklearn.preprocessing import PolynomialFeatures, RobustScaler
 from sklearn.linear_model import RidgeCV
 from sklearn.pipeline import Pipeline
-from sklearn.pipeline import make_pipeline
 
 
 class GazeTracker:
@@ -32,10 +29,7 @@ class GazeTracker:
 
         #self.method_num = 0  # 0 - linear mapping
                              # 1 - polynomial regression mapping
-                             # 2 - SVR method mapping
 
-        self.svr_model_y = None
-        self.svr_model_x = None
         self.poly_reg_y = None
         self.poly_reg_x = None
 
@@ -86,40 +80,6 @@ class GazeTracker:
 
         self.beta1 = self.calibration_data[1]['screen_position'][1]
         self.beta2 = self.calibration_data[7]['screen_position'][1]
-
-    def train_svr(self):
-        """
-        Train SVR model using iris center and eye corners as features.
-        """
-        X = []
-        Yx = []
-        Yy = []
-
-        for entry in self.calibration_data:
-            ix, iy = entry["l_iris_center"]
-            lx, ly = entry["l_eye_corner"]
-            rx, ry = entry["r_eye_corner"]
-            sx, sy = entry["screen_position"]
-
-            X.append([ix, iy, lx, ly, rx, ry])
-            Yx.append(sx)
-            Yy.append(sy)
-
-        X = np.array(X)
-        Yx = np.array(Yx)
-        Yy = np.array(Yy)
-
-        from sklearn.pipeline import make_pipeline
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.svm import SVR
-
-        self.svr_model_x = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=svr_c, epsilon=svr_epsilon))
-        self.svr_model_y = make_pipeline(StandardScaler(), SVR(kernel='rbf', C=svr_c, epsilon=svr_epsilon))
-
-        self.svr_model_x.fit(X, Yx)
-        self.svr_model_y.fit(X, Yy)
-
-        print("SVR model trained.")
 
     def linear_mapping(self, live_data):
 
@@ -204,42 +164,6 @@ class GazeTracker:
             print("Polynomial mapping error:", e)
             return None
 
-    def svr_mapping(self, iris_center, left_corner, right_corner):
-        """
-            Predict the gaze point (screen coordinates) from the iris center using trained SVR models.
-
-            Args:
-                iris_center (tuple): A tuple (x, y) representing the iris center coordinates in camera space.
-                left_corner(tuple): (x, y) Representing left eye corner
-                right_corner(tuple): (x, y) Representing right eye corner
-
-            Returns:
-                (screen_x, screen_y): predicted screen coordinates as floats.
-
-            Notes:
-                - Uses two separate SVR models: one for horizontal (X) and one for vertical (Y) predictions.
-                - Output is clamped to the screen boundaries using predefined padding.
-            """
-        if iris_center is None or left_corner is None or right_corner is None:
-            return None
-
-        ix, iy = iris_center
-        lx, ly = left_corner
-        rx, ry = right_corner
-        features = np.array([[ix, iy, lx, ly, rx, ry]])
-
-        try:
-            alpha = self.svr_model_x.predict(features)[0]
-            beta = self.svr_model_y.predict(features)[0]
-
-            alpha = np.clip(alpha, padding, self.screen_width - padding)
-            beta = np.clip(beta, padding, self.screen_height - padding)
-
-            return np.array([alpha, beta])
-        except Exception as e:
-            print("SVR prediction error:", e)
-            return None
-
     def calibration_iris_data(self):
         iris_data_dict = {
             "l_iris_center": [],
@@ -300,7 +224,6 @@ class GazeTracker:
         self.calibration_data = self.read_from_file()
         self.calculate_consts_linear_map()
         self.train_polynomial_regression()
-        self.train_svr()
 
         # scaler = self.poly_reg_x.named_steps["scaler"]
         # self.plot_scaling_grid(self.calibration_data, fitted_scaler=scaler, title_prefix="poly/")
@@ -320,8 +243,6 @@ class GazeTracker:
                     self.gaze = self.linear_mapping(eye_center_input)
                 elif method_num == 1:
                     self.gaze = self.polynomial_mapping(eye_center_input, l_corner_input, r_corner_input)
-                elif method_num == 2:
-                    self.gaze = self.svr_mapping(eye_center_input, l_corner_input, r_corner_input)
 
                 predictions.append(self.gaze)
 
@@ -519,7 +440,7 @@ class GazeTracker:
         - Ako su prosleđene putanje, snimi CSV
 
         save_csv_path: npr. 'results/linear_summary.csv'
-        method_label : npr. 'Linearno mapiranje' ili 'SVR' (samo za naslov ispisa)
+        method_label : Linearno mapiranje ili Polinomijalna regresija
         """
         if not getattr(self, 'all_metrics', None):
             print("No metrics to summarize.")
