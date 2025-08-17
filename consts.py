@@ -2,10 +2,10 @@
 
 filename = "iris_data.json"
 
-background_image = "otadzbina.png"
+background_image = "text2.png"
 
 # 0 - Linear mapping, 1 - Polynomial Regression model
-method_num = 0
+method_num = 1
 
 # Models constants
 svr_c = 1000
@@ -23,7 +23,7 @@ radius = 20
 padding = 20
 transition_steps = 20
 transition_time = 0.001
-collapse_steps = 10  # 20 default
+collapse_steps = 30  # 20 default
 collapse_time = 0.05 # 0.05 default
 num_of_dots = 3  # 3x3
 screen_width = 1000
