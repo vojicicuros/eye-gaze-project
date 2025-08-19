@@ -1,29 +1,84 @@
-# Eye Gaze Estimation Using a Webcam
-## Overview
-This project focuses on the development of open-source software for real-time eye gaze estimation using a standard webcam. The primary goal is to create a low-cost, accessible solution for tracking eye movement during reading tasks without the need for expensive, specialized hardware. The software aims to support cognitive and educational research, user interface optimization, and accessibility studies by enabling the detection of the user's gaze points as they interact with textual content.
+# Eye Gaze Estimation Using a Webcam  
 
-Eye tracking is a powerful technique for understanding cognitive processes, visual attention, and user engagement. Traditional systems often rely on infrared-based equipment and are limited to laboratory settings due to their cost and complexity. In contrast, this project uses only a standard optical webcam, making eye-tracking research and applications more affordable and portable.
+## Overview  
+This project focuses on the development of open-source software for real-time eye gaze estimation using a standard webcam. The primary goal is to create a **low-cost, accessible solution** for tracking eye movement during reading tasks without the need for specialized infrared hardware.  
 
-## Goals
-- Develop a feature-based gaze estimation software using webcam input.
+Applications include:  
+- Cognitive and educational research  
+- Dyslexia and attention studies  
+- User interface optimization  
+- Accessibility enhancement  
 
-- Enable accurate tracking of eye movement during text reading tasks.
+Unlike commercial infrared systems, this project works with a **regular webcam**, making eye-tracking more affordable and portable.  
 
-- Provide an interactive calibration and validation process for improved accuracy.
+---
 
-- Compare at least two gaze estimation methods.
+## Goals  
+- Implement feature-based gaze estimation software using webcam input.  
+- Enable accurate tracking of eye movements during text reading tasks.  
+- Provide **interactive calibration and validation** for improved accuracy.  
+- Compare **multiple mapping methods**:  
+  - Linear mapping  
+  - Polynomial regression  
+  - Support Vector Regression (SVR)  
+- Benchmark against **GazeRecorder**, a known tool in the domain.  
+- Provide a modular framework for future research and parameter tuning.  
 
-- Benchmark the developed software against GazeRecorder, a well-known tool in the domain.
+---
 
-- Make the tool accessible for future research, especially in areas like dyslexia studies, user interface design, and attention analysis.
+## Project Structure  
 
-## Project Structure
-The software workflow consists of three main stages:
+The workflow consists of three main stages:  
 
-- Calibration – The user is guided to fixate on predefined screen points to collect reference data.
+1. **Calibration** – The user fixates on predefined screen points to collect iris landmark data.  
+2. **Validation** – Metrics (accuracy, precision, error in px/cm/deg) are computed to verify model performance.  
+3. **Gaze Estimation** – The trained model runs in real-time and estimates gaze points as the user reads text.  
 
-- Validation – The collected data is used to verify and adjust the gaze estimation model.
+Each stage is implemented as a separate **class with threading support**, ensuring modularity and smooth performance.  
 
-- Gaze Estimation – The trained model estimates the user's gaze position in real-time as they read text.
+---
 
-The software includes features to assist users during calibration, ensuring better data quality and usability, even outside of controlled lab environments.
+## Architecture & Configuration  
+
+The system follows an **object-oriented, multithreaded architecture**:  
+
+- `camera_feed.py` → Captures webcam frames (configurable via `cam_config.py`).  
+- `calibration.py` → Guides the user through a calibration sequence.  
+- `validation.py` → Computes metrics to evaluate model accuracy.  
+- `gaze_part.py` → Runs real-time gaze estimation and visualization.  
+- `constants.py` → Contains core parameters:  
+cam_config.py → Holds resolution and FPS parameters for the webcam.
+
+This modular design allows experimenting with different parameters and models by changing only configs, without touching the main code.
+
+### Evaluation
+
+The system was benchmarked across different frame rates and methods.
+Metrics used: mean error, std deviation, p95 (95th percentile), stability.
+
+### Findings:
+
+Linear mapping → stable but less precise.
+Polynomial regression → more accurate but sensitive to noise.
+Lower FPS (30) showed better stability, while higher FPS (60) produced occasional large spikes in error (higher p95).
+
+- p95 metric: 95% of errors are below this threshold, showing how often extreme deviations occur.
+
+### Results & Visualizations
+
+Calibration path plots
+Scatter plots of gaze predictions
+XY frame analysis
+Metrics CSV files (metrics_summary.csv, metrics_stability.csv)
+These can be reused to compare future improvements and tuning experiments.
+
+### Usage
+
+Configure camera parameters in cam_config.py.
+
+Run the main script:
+1. Configure camera parameters in cam_config.py.
+2. Run the main script:
+- `python main.py`
+3. Follow on-screen calibration points.
+4. Validate performance and start real-time gaze estimation.
